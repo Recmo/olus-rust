@@ -27,7 +27,7 @@ fn is_line_terminator(c: char) -> bool {
 }
 
 // Either a line terminator or Carriage Return + Line Feed.
-named!(line_separator<&str, ()>, value!((), alt!(
+named!(line_separator<&str, ()>, value!((), alt!( // TODO: alt_complete?
     tag!("\u{D}\u{A}") | take_while_m_n!(1, 1, is_line_terminator)
 )));
 
@@ -46,12 +46,41 @@ named!(whitespace_no_newline<&str, ()>, value!((), take_while!(|c|
     !is_line_terminator(c) && is_pattern_whitespace(c)
 )));
 
-//
-// NOM matchers for strings and numbers
-//
-
+// NOM matcher for quoted strings
 // https://unicode-table.com/en/sets/quotation-marks/
 // Strings are quoted with English double quotes “ ”. Quotes can be nested.
+
+fn quoted(input: &str) -> IResult<&str, &str> {
+    match input.chars().next() {
+        None => return Err(Err::Incomplete(Needed::Size(2))),
+        Some('“') => {}
+        Some(_c) => return Err(Err::Error(error_position!(input, ErrorKind::Tag))), // TODO: Custom error
+    }
+    let start = '“'.len_utf8();
+    let mut depth = 1;
+    let mut len = 0;
+    for c in input[start..].chars() {
+        match c {
+            '“' => depth += 1,
+            '”' => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            _ => {}
+        }
+        len += c.len_utf8();
+    }
+    if depth > 0 {
+        Err(Err::Incomplete(Needed::Size(depth * '”'.len_utf8())))
+    } else {
+        Ok((
+            &input[(start + len + '”'.len_utf8())..],
+            &input[start..(start + len)],
+        ))
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -104,6 +133,20 @@ mod tests {
     fn parse_syntax() {
         assert_eq!(syntax("+ a"), Ok((" a", "+")));
         // TODO: assert_eq!(syntax("≈ a"), Ok((" a", "≈")));
+    }
+
+    #[test]
+    fn parse_quoted() {
+        assert_eq!(quoted("“Hello”asd"), Ok(("asd", "Hello")));
+        assert_eq!(
+            quoted("“Outer “inner” quotation” trailing input"),
+            Ok((" trailing input", "Outer “inner” quotation"))
+        );
+        assert_eq!(quoted("“Hello””asd"), Ok(("”asd", "Hello")));
+        assert_eq!(
+            quoted("“1“2“3”2”“2“3““5”””2”1”0"),
+            Ok(("0", "1“2“3”2”“2“3““5”””2”1"))
+        );
     }
 
 }
