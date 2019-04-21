@@ -1,0 +1,9 @@
+[workspace]
+members = [
+	"olus",
+	"parser"
+]
+
+[profile.release]
+panic = "abort"
+lto = true

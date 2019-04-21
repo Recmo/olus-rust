@@ -1,0 +1,13 @@
+[package]
+name = "parser"
+version = "0.1.0"
+authors = ["Remco Bloemen <remco@0x.org>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4.6"
+unic = "0.9.0"
+unic-ucd-ident = { version = "0.9.0", features = ["pattern"] }
+caseless = "0.2.1"
+nom = "4.2.2"
+nom_locate = "0.3.1"
