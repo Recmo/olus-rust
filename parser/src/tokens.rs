@@ -24,19 +24,38 @@ pub(crate) fn is_line_terminator(c: char) -> bool {
     }
 }
 
+// Unicode aware version of takewhile
+
+pub(crate) fn take_char<F>(pred: F) -> impl Fn(&str) -> IResult<&str, &str>
+where
+    F: Fn(char) -> bool,
+{
+    move |input: &str| match input.chars().next() {
+        Some(c) => {
+            if pred(c) {
+                let l = c.len_utf8();
+                Ok((&input[l..], &input[..l]))
+            } else {
+                Err(Err::Error(error_position!(input, ErrorKind::Char)))
+            }
+        }
+        None => Err(Err::Incomplete(Needed::Unknown)),
+    }
+}
+
 // Either a line terminator or Carriage Return + Line Feed.
 named!(pub(crate) line_separator<&str, ()>, value!((), alt!( // TODO: alt_complete?
-    tag!("\u{D}\u{A}") | take_while_m_n!(1, 1, is_line_terminator)
+     tag!("\u{D}\u{A}") | map!(take_char(is_line_terminator), |a| a )
 )));
 
 // NOM matchers for unicode UAX31
 // @see https://www.unicode.org/reports/tr31/
 
 named!(pub(crate) identifier<&str, &str>, recognize!(
-    tuple!(take_while_m_n!(1, 1, is_xid_start), take_while!(is_xid_continue))
+    tuple!(map!(take_char(is_xid_start), |a| a), take_while!(is_xid_continue))
 ));
 
-named!(pub(crate) syntax<&str, &str>, take_while_m_n!(1, 1, is_pattern_syntax));
+named!(pub(crate) syntax<&str, &str>, map!(take_char(is_pattern_syntax), |a| a));
 
 named!(pub(crate) whitespace<&str, ()>, value!((), take_while!(is_pattern_whitespace)));
 
@@ -107,6 +126,8 @@ mod tests {
         assert_eq!(line_separator("\u{D}\u{A}\n"), Ok(("\n", ())));
         assert_eq!(line_separator("\u{D}a"), Ok(("a", ())));
         assert_eq!(line_separator("\u{A}\u{D}\n"), Ok(("\u{D}\n", ())));
+        assert_eq!(line_separator("\u{2028}.\n"), Ok((".\n", ())));
+        assert_eq!(line_separator("\u{2029}.\n"), Ok((".\n", ())));
     }
 
     #[test]

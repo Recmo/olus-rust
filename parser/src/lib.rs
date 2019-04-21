@@ -7,11 +7,12 @@ use tokens::{identifier, syntax, whitespace_line};
 pub use unic::UNICODE_VERSION;
 
 named!(name<&str, &str>, alt!(identifier | verify!(syntax, |s| match s {
+    // Reserved syntax
+    "“" => false,
+    "”" => false,
     "↦" => false,
     "(" => false,
     ")" => false,
-    "“" => false,
-    "”" => false,
     _ => true,
 })));
 
