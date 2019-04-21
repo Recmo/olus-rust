@@ -25,6 +25,4 @@ fn main() {
         .unwrap();
 
     println!("Unicode version: {}", parser::UNICODE_VERSION);
-
-    parser::parse();
 }
