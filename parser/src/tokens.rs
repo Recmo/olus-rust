@@ -1,6 +1,7 @@
 #![deny(clippy::all)]
 #![allow(clippy::double_comparisons)] // Many false positives with nom macros.
 use nom::*;
+use std::str::FromStr;
 use unic::ucd::category::GeneralCategory;
 use unic::ucd::ident::{is_pattern_syntax, is_pattern_whitespace, is_xid_continue, is_xid_start};
 
@@ -99,6 +100,13 @@ pub(crate) fn quoted(input: &str) -> IResult<&str, &str> {
     }
 }
 
+// NOM matcher for numbers
+// TODO: Unicode numerals
+// TODO: Base subscripts and exponents.
+named!(pub(crate) numeral<&str, u64>,
+    map_res!(digit, FromStr::from_str)
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,6 +177,11 @@ mod tests {
             quoted("“1“2“3”2”“2“3““5”””2”1”0"),
             Ok(("0", "1“2“3”2”“2“3““5”””2”1"))
         );
+    }
+
+    #[test]
+    fn parse_number() {
+        assert_eq!(numeral("0123."), Ok((".", 123)));
     }
 
 }
