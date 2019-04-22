@@ -75,10 +75,6 @@ named!(literal_string<&str, AST::Expression>,
     )
 );
 
-named!(statement<&str, AST::Statement>, alt!(
-    closure | call | block
-));
-
 named!(closure<&str, AST::Statement>, 
     map!(
         tuple!(
@@ -99,17 +95,22 @@ named!(call<&str, AST::Statement>,
 
 // Implements the off-side rule.
 named!(block<&str, AST::Statement>, do_parse!(
-    ident: peek!(verify!(tokens::whitespace_line, |s: &str| s.len() > 0)) >>
+    ident: peek!(tokens::whitespace_line) >>
     statements: many1!(
-        // TODO: Nested block needs to have ident concatenated or it will have a false value
-        // for the next line.
-        map!(tuple!(tag!(ident), statement, tokens::line_separator), |(_l, m, _r)| m)
+        alt_complete!(
+            map!(tuple!(tag!(ident), closure, tokens::line_separator), |(_l, m, _r)| Some(m)) |
+            map!(tuple!(tag!(ident), call, tokens::line_separator), |(_l, m, _r)| Some(m)) |
+            map!(tuple!(
+                peek!(tuple!(
+                    tag!(ident),
+                    verify!(tokens::whitespace_line, |s: &str| !s.is_empty())
+                )),
+                block
+                ), |(_l, r)| Some(r)) |
+            map!(tokens::line_separator, |_s| None)
+        )
     ) >>
-    (AST::Statement::Block(statements))
-));
-
-named!(line<&str, Vec<&str> >, many1!(
-    map!(pair!(alt!(tokens::identifier | tokens::syntax), opt!(tokens::whitespace_line)), |(a, _b)| a)
+    (AST::Statement::Block(statements.into_iter().filter_map(|v| v).collect()))
 ));
 
 #[cfg(test)]
@@ -202,29 +203,31 @@ mod tests {
 
     #[test]
     fn parse_block() {
-        println!("{:?}", block("  a\n  b\n  c\n T"));
-        println!("{:?}", block(" a\n  b1\n  b2\n c\nT"));
-    }
-
-    #[test]
-    fn parse_line() {
-        println!("{:?}", line(" fact\n"));
-        assert!(line(".").is_err());
-        assert!(line("").is_err());
-        assert!(line(" fact\n").is_err());
-        assert_eq!(
-            line("fact n\t m a.\n"),
-            Ok(("\n", vec!["fact", "n", "m", "a", "."]))
-        );
-        assert_eq!(line("fact n\n m a."), Ok(("\n m a.", vec!["fact", "n"])));
-        assert_eq!(
-            line("a + b * c\n"),
-            Ok(("\n", vec!["a", "+", "b", "*", "c"]))
-        );
-
-        // TODO: Allow spliting on syntax. While we don't support infix notation
-        // it still makes sense as there is no other valid parse.
-        assert_eq!(line("a+b*c\n"), Ok(("\n", vec!["a", "+", "b", "*", "c"])));
-        assert_eq!(line("+*/\n"), Ok(("\n", vec!["+", "*", "/"])));
+        fn call(a: &str) -> AST::Statement {
+            AST::Statement::Call(vec![AST::Expression::Reference(a.to_string())])
+        }
+        assert_eq!(block("a\nb\nc\n"), Ok((
+            "", 
+            AST::Statement::Block(vec![call("a"), call("b"), call("c")])
+        )));
+        assert_eq!(block("a\nb\n\n\nc\n"), Ok((
+            "", 
+            AST::Statement::Block(vec![call("a"), call("b"), call("c")])
+        )));
+        assert_eq!(block("  a\n  b\n  c\n T"), Ok((
+            " T", 
+            AST::Statement::Block(vec![call("a"), call("b"), call("c")])
+        )));
+        assert_eq!(block(" a\n  b1\n\n  b2\n c\nT"), Ok((
+            "T", 
+            AST::Statement::Block(vec![
+                call("a"), 
+                AST::Statement::Block(vec![
+                    call("b1"),
+                    call("b2")
+                ])
+                , call("c")
+            ])
+        )));
     }
 }
