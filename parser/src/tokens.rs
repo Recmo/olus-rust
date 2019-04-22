@@ -57,11 +57,11 @@ named!(pub(crate) identifier<&str, &str>, recognize!(
 
 named!(pub(crate) syntax<&str, &str>, map!(take_char(is_pattern_syntax), |a| a));
 
-named!(pub(crate) whitespace<&str, ()>, value!((), take_while!(is_pattern_whitespace)));
+named!(pub(crate) whitespace<&str, &str>, take_while!(is_pattern_whitespace));
 
-named!(pub(crate) whitespace_line<&str, ()>, value!((), take_while!(|c|
+named!(pub(crate) whitespace_line<&str, &str>, take_while!(|c|
     !is_line_terminator(c) && is_pattern_whitespace(c)
-)));
+));
 
 // NOM matcher for quoted strings
 // https://unicode-table.com/en/sets/quotation-marks/
@@ -144,9 +144,9 @@ mod tests {
     #[test]
     fn parse_whitespace() {
         assert_eq!(whitespace(""), Err(Err::Incomplete(Needed::Size(1))));
-        assert_eq!(whitespace("a"), Ok(("a", ())));
-        assert_eq!(whitespace(" a"), Ok(("a", ())));
-        assert_eq!(whitespace(" \t\n\r a"), Ok(("a", ())));
+        assert_eq!(whitespace("a"), Ok(("a", "")));
+        assert_eq!(whitespace(" a"), Ok(("a", " ")));
+        assert_eq!(whitespace(" \t\n\r a"), Ok(("a", " \t\n\r ")));
     }
 
     #[test]
