@@ -1,4 +1,5 @@
 use clap::{crate_authors, crate_description, crate_version, App, Arg};
+use parser::parse_file;
 
 fn main() {
     let args = App::new("Oluś")
@@ -17,6 +18,9 @@ fn main() {
                 .help("Silence all output"),
         )
         .get_matches();
+
+    let olus = parse_file("../example.olus");
+    println!("{:?}", olus);
 
     stderrlog::new()
         .verbosity(args.occurrences_of("verbosity") as usize)
