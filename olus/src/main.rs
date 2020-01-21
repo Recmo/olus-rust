@@ -1,32 +1,34 @@
-use clap::{crate_authors, crate_description, crate_version, App, Arg};
 use parser::parse_file;
+use std::error::Error;
+use structopt::StructOpt;
 
-fn main() {
-    let args = App::new("Oluś")
-        .about(crate_description!())
-        .version(crate_version!())
-        .author(crate_authors!(",\n"))
-        .arg(
-            Arg::with_name("verbosity")
-                .short("v")
-                .multiple(true)
-                .help("Increase message verbosity"),
-        )
-        .arg(
-            Arg::with_name("quiet")
-                .short("q")
-                .help("Silence all output"),
-        )
-        .get_matches();
+#[derive(Debug, StructOpt)]
+#[structopt(name = "Oluś")]
+struct Options {
+    /// Verbose mode (-v, -vv, -vvv, etc.)
+    #[structopt(short, long, parse(from_occurrences))]
+    verbose: usize,
 
-    let olus = parse_file("../example.olus");
-    println!("{:?}", olus);
+    /// Silence all log output (-q)
+    #[structopt(short, long)]
+    quiet: bool,
+}
 
+fn main() -> Result<(), Box<Error>> {
+    // Parse commandline options using structopt
+    let options = Options::from_args();
+    // TODO: Prinnt unicode version in version info
+
+    // Initialize log output
     stderrlog::new()
-        .verbosity(args.occurrences_of("verbosity") as usize)
-        .quiet(args.is_present("quiet"))
+        .verbosity(options.verbose)
+        .quiet(options.quiet)
         .init()
         .unwrap();
 
-    println!("Unicode version: {}", parser::UNICODE_VERSION);
+    // Compile
+    let olus = parse_file("../example.olus");
+    println!("{:?}", olus);
+
+    Ok(())
 }

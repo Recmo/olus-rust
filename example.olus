@@ -22,12 +22,12 @@ fib n return ↦
     return (add (fib m) (fib k))
 
 fibp n a b return ↦
-  isZero n (↦ return a) (↦)
-  fibp (sub n 1) (add a b) a return
+    isZero n (↦ return a) (↦)
+    fibp (sub n 1) (add a b) a return
 
 fibpn n return ↦
-  isZero n (↦ return 0) (↦)
-  fibp (sub n 1) 1 0 return
+    isZero n (↦ return 0) (↦)
+    fibp (sub n 1) 1 0 return
 
 main return ↦
     printLine “Hello, World!” (↦)
@@ -41,4 +41,3 @@ main return ↦
     return
 
 main exit
-

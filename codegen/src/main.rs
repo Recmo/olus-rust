@@ -14,8 +14,8 @@ fn macho(code: &[u8]) -> Vec<u8> {
 
     // See https://pewpewthespells.com/re/Mach-O_File_Format.pdf
 
-    // Mach-O header (64 bytes)
     dynasm!(ops
+        // Mach-O header (64 bytes)
         ; .dword 0xfeedfacf_u32 as i32 // Magic
         ; .dword 0x01000007_u32 as i32 // Cpu type x86_64
         ; .dword 0x80000003_u32 as i32 // Cpu subtype
@@ -30,7 +30,7 @@ fn macho(code: &[u8]) -> Vec<u8> {
         ; .qword 0          // segment name
         ; .qword 0          // segment name
         ; .qword 0          // VM Address
-        ; .qword 0x100000000  // VM Size
+        ; .qword 4096       // VM Size
         ; .qword 0          // File Offset
         ; .qword 0          // File Size
         ; .dword 0          // max protect
@@ -42,11 +42,11 @@ fn macho(code: &[u8]) -> Vec<u8> {
         ; .dword 72         // command size
         ; .qword 0          // segment name
         ; .qword 0          // segment name
-        ; .qword 0x100000000 // VM Address
+        ; .qword 4096       // VM Address
         ; .qword 4096       // VM Size
         ; .qword 0          // File Offset
         ; .qword 4096       // File Size
-        ; .dword 7          // max protect (RWX)
+        ; .dword 5          // max protect (R_X)
         ; .dword 5          // initial protect (R_X)
         ; .dword 0          // Num sections
         ; .dword 0          // Flags
@@ -56,12 +56,12 @@ fn macho(code: &[u8]) -> Vec<u8> {
         ; .dword 0x4        // Flavour
         ; .dword 42         // Thread state (needs to be 42)
         ; .qword 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0 // r0..r15
-        ; .qword 0x100000000 + 0x168    // rip
+        ; .qword 4096 + 360 // rip
         ; .qword 0, 0, 0, 0 // rflags, cs, fs, gs
         // Code
         ; .bytes code
         // Padding
-        ; .bytes std::iter::repeat(0_u8).take(4096 - 328 - code.len())
+        ; .bytes std::iter::repeat(0_u8).take(4096 - 360 - code.len())
     );
     ops.finalize().unwrap()[..].to_owned()
 }

@@ -100,10 +100,12 @@ pub fn bind(block: &mut Statement) -> u64 {
     struct BindReferences(HashMap<String, u64>);
     impl Visitor for BindReferences {
         fn visit_binder(&mut self, n: &mut Option<u64>, s: &mut String) {
+            // TODO: Scoping.
+            // TODO: Forward looking.
             self.0.insert(s.to_string(), n.unwrap());
         }
         fn visit_reference(&mut self, n: &mut Option<u64>, s: &mut String) {
-            self.0.get(s).map(|i| *n = Some(*i));
+            *n = self.0.get(s).cloned();
         }
     }
     let mut bind_references = BindReferences(HashMap::new());
