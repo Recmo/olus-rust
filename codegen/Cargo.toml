@@ -1,10 +1,8 @@
 [package]
-name = "olus-codegen"
+name = "codegen"
 version = "0.1.0"
 authors = ["Remco Bloemen <remco@0x.org>"]
 edition = "2018"
-
-[workspace]
 
 [dependencies]
 log = "0.4.6"

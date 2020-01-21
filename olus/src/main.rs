@@ -1,5 +1,7 @@
+use codegen::codegen;
 use parser::parse_file;
 use std::error::Error;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -12,12 +14,20 @@ struct Options {
     /// Silence all log output (-q)
     #[structopt(short, long)]
     quiet: bool,
+
+    /// Source file
+    #[structopt(parse(from_os_str))]
+    input: PathBuf,
+
+    /// Output file, defaults to 'a.out'
+    #[structopt(parse(from_os_str))]
+    output: Option<PathBuf>,
 }
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     // Parse commandline options using structopt
     let options = Options::from_args();
-    // TODO: Prinnt unicode version in version info
+    // TODO: Print unicode version in version info
 
     // Initialize log output
     stderrlog::new()
@@ -27,8 +37,11 @@ fn main() -> Result<(), Box<Error>> {
         .unwrap();
 
     // Compile
-    let olus = parse_file("../example.olus");
-    println!("{:?}", olus);
+    let olus = parse_file(&options.input);
+    dbg!(&olus);
+
+    // Codegen
+    codegen(&options.output.unwrap_or("a.out".into()));
 
     Ok(())
 }

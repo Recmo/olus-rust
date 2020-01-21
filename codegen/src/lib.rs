@@ -3,11 +3,13 @@
 
 use dynasm::dynasm;
 use dynasmrt::{DynasmApi, DynasmLabelApi};
-
+use std::error::Error;
+use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::Write;
-use std::{io, mem, slice};
+use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 
 fn macho(code: &[u8]) -> Vec<u8> {
     let mut ops = dynasmrt::x64::Assembler::new().unwrap();
@@ -66,8 +68,8 @@ fn macho(code: &[u8]) -> Vec<u8> {
     ops.finalize().unwrap()[..].to_owned()
 }
 
-fn main() {
-    let mut ops = dynasmrt::x64::Assembler::new().unwrap();
+pub fn codegen(destination: &PathBuf) -> Result<(), Box<dyn Error>> {
+    let mut ops = dynasmrt::x64::Assembler::new()?;
     let string = "Hello, World!\n";
 
     // https://www.idryman.org/blog/2014/12/02/writing-64-bit-assembly-on-mac-os-x/
@@ -86,14 +88,20 @@ fn main() {
         ; ->hello:
         ; .bytes string.as_bytes()
     );
-    println!("Compiling...");
+    ops.commit()?;
+    let buf = ops.finalize().expect("Finalize after commit.");
 
-    let buf = ops.finalize().unwrap();
-    dbg!(&*buf);
-    dbg!(buf.len());
-
-    let mut file = File::create("foo").unwrap();
-    file.write_all(&macho(&*buf)).unwrap();
+    let exe = macho(&*buf);
+    {
+        let mut file = File::create(destination)?;
+        file.write_all(&exe)?;
+        file.sync_all()?;
+    }
+    {
+        let mut perms = fs::metadata(destination)?.permissions();
+        perms.set_mode(0o755); // rwx r_x r_x
+        fs::set_permissions(destination, perms)?;
+    }
 
     /*
     println!("Running...");
@@ -101,4 +109,5 @@ fn main() {
     hello_fn();
     println!("And back!");
     */
+    Ok(())
 }

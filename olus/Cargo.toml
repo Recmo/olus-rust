@@ -10,3 +10,4 @@ log = "0.4.6"
 stderrlog = "0.4.1"
 structopt = "0.3"
 parser = { path = "../parser" }
+codegen = { path = "../codegen" }

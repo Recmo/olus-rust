@@ -1,7 +1,8 @@
 [workspace]
 members = [
 	"olus",
-	"parser"
+	"parser",
+	"codegen"
 ]
 
 [profile.release]
