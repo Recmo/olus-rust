@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 // An identifier occupies a binder spot.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
-pub struct Binder(pub Option<u64>, pub String);
+pub struct Binder(pub Option<usize>, pub String);
 
 // An expression occupies a reference spot.
 // Fructose is an inline declaration in parenthesis. It occupies one reference
@@ -10,7 +10,7 @@ pub struct Binder(pub Option<u64>, pub String);
 // Galactose is a call statement in parenthesis.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
 pub enum Expression {
-    Reference(Option<u64>, String),
+    Reference(Option<usize>, String),
     Fructose(Vec<Binder>, Vec<Expression>),
     Galactose(Vec<Expression>),
     Literal(String),

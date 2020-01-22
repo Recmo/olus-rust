@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     dbg!(&olus);
 
     // Codegen
-    codegen(&options.output.unwrap_or("a.out".into()));
+    codegen(&options.output.unwrap_or("a.out".into()))?;
 
     Ok(())
 }

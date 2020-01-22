@@ -1,5 +1,3 @@
-import “intrinsics”
-
 printLine s return ↦
     print s (↦)
     print “\n” (↦)
@@ -39,5 +37,3 @@ main return ↦
     print “ fibonaci is ” (↦)
     printLine (fibpn n) (↦)
     return
-
-main exit
