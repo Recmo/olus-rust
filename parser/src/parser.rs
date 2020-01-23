@@ -1,7 +1,7 @@
 #![deny(clippy::all)]
 #![allow(clippy::double_comparisons)] // Many false positives with nom macros.
-use crate::AST;
 use crate::tokens;
+use crate::Ast;
 use nom::*;
 
 pub fn is_reserved_keyword(s: &str) -> bool {
@@ -22,19 +22,19 @@ named!(pub identifier<&str, &str>,
     )
 );
 
-named!(pub binder<&str, AST::Binder>,
-    map!(identifier, |s| AST::Binder(None, s.to_owned()))
+named!(pub binder<&str, Ast::Binder>,
+    map!(identifier, |s| Ast::Binder(None, s.to_owned()))
 );
 
-named!(pub expression<&str, AST::Expression>, alt!(
+named!(pub expression<&str, Ast::Expression>, alt!(
     reference | fructose | galactose | literal_string | literal_number
 ));
 
-named!(pub reference<&str, AST::Expression>,
-    map!(identifier, |s| AST::Expression::Reference(None, s.to_owned()))
+named!(pub reference<&str, Ast::Expression>,
+    map!(identifier, |s| Ast::Expression::Reference(None, s.to_owned()))
 );
 
-named!(pub fructose<&str, AST::Expression>,
+named!(pub fructose<&str, Ast::Expression>,
     map!(
         delimited!(
             pair!(tag!("("), opt!(tokens::whitespace)),
@@ -49,11 +49,11 @@ named!(pub fructose<&str, AST::Expression>,
             ),
             tag!(")")
         ),
-        |(l, _m, r)| AST::Expression::Fructose(l, r)
+        |(l, _m, r)| Ast::Expression::Fructose(l, r)
     )
 );
 
-named!(pub galactose<&str, AST::Expression>,
+named!(pub galactose<&str, Ast::Expression>,
     map!(
         delimited!(
             pair!(tag!("("), opt!(tokens::whitespace)),
@@ -62,45 +62,45 @@ named!(pub galactose<&str, AST::Expression>,
             ),
             tag!(")")
         ),
-        AST::Expression::Galactose
+        Ast::Expression::Galactose
     )
 );
 
-named!(pub literal_string<&str, AST::Expression>,
+named!(pub literal_string<&str, Ast::Expression>,
     map!(
         tokens::quoted,
-        |s| AST::Expression::Literal(s.to_owned())
+        |s| Ast::Expression::Literal(s.to_owned())
     )
 );
 
-named!(pub literal_number<&str, AST::Expression>,
+named!(pub literal_number<&str, Ast::Expression>,
     map!(
         tokens::numeral,
-        AST::Expression::Number
+        Ast::Expression::Number
     )
 );
 
-named!(pub closure<&str, AST::Statement>, 
+named!(pub closure<&str, Ast::Statement>, 
     map!(
         tuple!(
             many1!(map!(pair!(binder, opt!(tokens::whitespace_line)), |(a, _b)| a)),
             pair!(tag!("↦"), opt!(tokens::whitespace_line)),
             many0!(map!(pair!(expression, opt!(tokens::whitespace_line)), |(a, _b)| a))
         ),
-        |(l, _m, r)| AST::Statement::Closure(l, r)
+        |(l, _m, r)| Ast::Statement::Closure(l, r)
     )
 );
 
-named!(pub call<&str, AST::Statement>, 
+named!(pub call<&str, Ast::Statement>, 
     map!(
         many1!(map!(pair!(expression, opt!(tokens::whitespace_line)), |(a, _b)| a)),
-        AST::Statement::Call
+        Ast::Statement::Call
     )
 );
 
 // Implements the off-side rule.
 // TODO: Fix support for incomplete data.
-named!(pub block<&str, AST::Statement>, do_parse!(
+named!(pub block<&str, Ast::Statement>, do_parse!(
     ident: peek!(tokens::whitespace_line) >>
     statements: many1!(
         alt_complete!(
@@ -116,15 +116,15 @@ named!(pub block<&str, AST::Statement>, do_parse!(
             map!(tokens::line_separator, |_s| None)
         )
     ) >>
-    (AST::Statement::Block(statements.into_iter().filter_map(|v| v).collect()))
+    (Ast::Statement::Block(statements.into_iter().filter_map(|v| v).collect()))
 ));
 
 // Returns a single block containing the contents.
 // TODO: Error handling.
-pub fn parse_olus(input: &str) -> AST::Statement {
+pub fn parse_olus(input: &str) -> Ast::Statement {
     match block(input) {
         Ok(("", result)) => result,
-        _ => panic!()
+        _ => panic!(),
     }
 }
 
@@ -139,9 +139,9 @@ mod tests {
             expression("(\na\n\nb\n) "),
             Ok((
                 " ",
-                AST::Expression::Galactose(vec![
-                    AST::Expression::Reference("a".to_string()),
-                    AST::Expression::Reference("b".to_string()),
+                Ast::Expression::Galactose(vec![
+                    Ast::Expression::Reference("a".to_string()),
+                    Ast::Expression::Reference("b".to_string()),
                 ])
             ))
         );
@@ -149,13 +149,13 @@ mod tests {
             expression("(a_“He + (l)lo”+ (b “*”)) "),
             Ok((
                 " ",
-                AST::Expression::Galactose(vec![
-                    AST::Expression::Reference("a_".to_string()),
-                    AST::Expression::Literal("He + (l)lo".to_string()),
-                    AST::Expression::Reference("+".to_string()),
-                    AST::Expression::Galactose(vec![
-                        AST::Expression::Reference("b".to_string()),
-                        AST::Expression::Literal("*".to_string()),
+                Ast::Expression::Galactose(vec![
+                    Ast::Expression::Reference("a_".to_string()),
+                    Ast::Expression::Literal("He + (l)lo".to_string()),
+                    Ast::Expression::Reference("+".to_string()),
+                    Ast::Expression::Galactose(vec![
+                        Ast::Expression::Reference("b".to_string()),
+                        Ast::Expression::Literal("*".to_string()),
                     ])
                 ])
             ))
@@ -166,18 +166,18 @@ mod tests {
     fn parse_fructose() {
         assert_eq!(
             expression("(↦)"),
-            Ok(("", AST::Expression::Fructose(vec![], vec![])))
+            Ok(("", Ast::Expression::Fructose(vec![], vec![])))
         );
         assert_eq!(
             expression("(↦f a b)"),
             Ok((
                 "",
-                AST::Expression::Fructose(
+                Ast::Expression::Fructose(
                     vec![],
                     vec![
-                        AST::Expression::Reference("f".to_string()),
-                        AST::Expression::Reference("a".to_string()),
-                        AST::Expression::Reference("b".to_string()),
+                        Ast::Expression::Reference("f".to_string()),
+                        Ast::Expression::Reference("a".to_string()),
+                        Ast::Expression::Reference("b".to_string()),
                     ]
                 )
             ))
@@ -186,9 +186,9 @@ mod tests {
             expression("(a b ↦ f)"),
             Ok((
                 "",
-                AST::Expression::Fructose(
-                    vec![AST::Binder("a".to_string()), AST::Binder("b".to_string()),],
-                    vec![AST::Expression::Reference("f".to_string()),]
+                Ast::Expression::Fructose(
+                    vec![Ast::Binder("a".to_string()), Ast::Binder("b".to_string()),],
+                    vec![Ast::Expression::Reference("f".to_string()),]
                 )
             ))
         );
@@ -199,17 +199,17 @@ mod tests {
         assert_eq!(
             closure("fact m n ↦ f a b \nc"),
             Ok((
-                "\nc", 
-                AST::Statement::Closure(
+                "\nc",
+                Ast::Statement::Closure(
                     vec![
-                        AST::Binder("fact".to_string()),
-                        AST::Binder("m".to_string()),
-                        AST::Binder("n".to_string()),
+                        Ast::Binder("fact".to_string()),
+                        Ast::Binder("m".to_string()),
+                        Ast::Binder("n".to_string()),
                     ],
                     vec![
-                        AST::Expression::Reference("f".to_string()),
-                        AST::Expression::Reference("a".to_string()),
-                        AST::Expression::Reference("b".to_string()),
+                        Ast::Expression::Reference("f".to_string()),
+                        Ast::Expression::Reference("a".to_string()),
+                        Ast::Expression::Reference("b".to_string()),
                     ]
                 )
             ))
@@ -218,31 +218,40 @@ mod tests {
 
     #[test]
     fn parse_block() {
-        fn call(a: &str) -> AST::Statement {
-            AST::Statement::Call(vec![AST::Expression::Reference(a.to_string())])
+        fn call(a: &str) -> Ast::Statement {
+            Ast::Statement::Call(vec![Ast::Expression::Reference(a.to_string())])
         }
-        assert_eq!(block("a\nb\nc\n"), Ok((
-            "", 
-            AST::Statement::Block(vec![call("a"), call("b"), call("c")])
-        )));
-        assert_eq!(block("a\nb\n\n\nc\n"), Ok((
-            "", 
-            AST::Statement::Block(vec![call("a"), call("b"), call("c")])
-        )));
-        assert_eq!(block("  a\n  b\n  c\n T"), Ok((
-            " T", 
-            AST::Statement::Block(vec![call("a"), call("b"), call("c")])
-        )));
-        assert_eq!(block(" a\n  b1\n\n  b2\n c\nT"), Ok((
-            "T", 
-            AST::Statement::Block(vec![
-                call("a"), 
-                AST::Statement::Block(vec![
-                    call("b1"),
-                    call("b2")
+        assert_eq!(
+            block("a\nb\nc\n"),
+            Ok((
+                "",
+                Ast::Statement::Block(vec![call("a"), call("b"), call("c")])
+            ))
+        );
+        assert_eq!(
+            block("a\nb\n\n\nc\n"),
+            Ok((
+                "",
+                Ast::Statement::Block(vec![call("a"), call("b"), call("c")])
+            ))
+        );
+        assert_eq!(
+            block("  a\n  b\n  c\n T"),
+            Ok((
+                " T",
+                Ast::Statement::Block(vec![call("a"), call("b"), call("c")])
+            ))
+        );
+        assert_eq!(
+            block(" a\n  b1\n\n  b2\n c\nT"),
+            Ok((
+                "T",
+                Ast::Statement::Block(vec![
+                    call("a"),
+                    Ast::Statement::Block(vec![call("b1"), call("b2")]),
+                    call("c")
                 ])
-                , call("c")
-            ])
-        )));
+            ))
+        );
     }
 }

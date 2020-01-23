@@ -1,4 +1,4 @@
-use crate::AST::*;
+use crate::Ast::*;
 use std::collections::HashMap;
 
 pub trait Visitor {

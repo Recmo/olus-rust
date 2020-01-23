@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 // An identifier occupies a binder spot.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
 pub struct Binder(pub Option<usize>, pub String);
 
 // An expression occupies a reference spot.

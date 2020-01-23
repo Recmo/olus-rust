@@ -1,0 +1,2 @@
+square n ret ↦
+    ret mul n n
