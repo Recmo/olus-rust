@@ -186,7 +186,7 @@ pub fn codegen(destination: &PathBuf) -> Result<(), Box<dyn Error>> {
         ; mov esi, 0x2000
         ; mov edx, BYTE string.len() as _
         ; syscall
-        // ; mov *0x3000, QWORD 42
+        ; mov DWORD [0x3000], BYTE 42
         ; mov eax, WORD 0x2000001 // sys_exit(code)
         ; mov edi, 0
         ; syscall
