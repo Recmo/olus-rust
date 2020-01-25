@@ -95,6 +95,7 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
             ; .dword 0          // Flags
         );
     }
+    let end_of_ram = code_pages + rom_pages + ram_pages;
     let mut vm_offset = 0;
     let mut file_offset = 0;
 
@@ -137,24 +138,30 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
     file_offset += rom_pages;
 
     // Unix thread segment (184 bytes)
+    // rip need to be initialized to the start of the program.
+    // If rsp is zero, XNU will allocate a stack for the program. XNU requires
+    // programs to have a stack and uses it to pass command line and environment
+    // arguments. On start rsp will point to the top of the stack. To prevent
+    // XNU from allocating an otherwise unecessary stack, but still keep the
+    // variables, we set rsp to the top of the RAM. On start, variables will be
+    // in [rsp ... end of ram - 8]. The last eight bytes are reserved to store
+    // rsp in on start.
+    // This initial 'stack' looks like:
+    // See <https://github.com/apple/darwin-xnu/blob/master/bsd/kern/kern_exec.c#L3821>
     dynasm!(ops
         ; .dword 0x5        // Segment command
         ; .dword 184        // Command size
         ; .dword 0x4        // Flavour
         ; .dword 42         // Thread state (needs to be 42)
         ; .qword 0, 0, 0, 0 // r0, r3, r1, r2 (rax, rbx, rcx, rdx)
-        ; .qword 0, 0, 0, 0 // r7, r6, r5, r4 (rdi, rsi, rbp, rsp)
+        ; .qword 0, 0, 0    // r7, r6, r5 (rdi, rsi, rbp)
+        ; .qword (end_of_ram * PAGE - 8) as i64     // r4 (rsp)
         ; .qword 0, 0, 0, 0, 0, 0, 0, 0 // r8..r15
         ; .qword (PAGE + header_size) as i64 // rip
         ; .qword 0, 0, 0, 0 // rflags, cs, fs, gs
     );
-    // Because `rsp` is zero, a default stack will be allocated by the
-    // kernel. This stack will be filled with command line arguments and
-    // environment variables. On start the `rsp` register will contain the
-    // address of this stack.
-    // TODO: Use custom stack to merge overlap (non-functional) stack with
-    // RW_ memory and
 
+    // Concatenate all the pages
     let mut result = ops.finalize().unwrap()[..].to_owned();
     assert_eq!(result.len(), header_size);
     result.extend(code);
@@ -179,6 +186,10 @@ pub fn codegen(destination: &PathBuf) -> Result<(), Box<dyn Error>> {
     // https://www.idryman.org/blog/2014/12/02/writing-64-bit-assembly-on-mac-os-x/
     // https://censoredusername.github.io/dynasm-rs/language/langref_x64.html#register
     dynasm!(ops
+        // Prelude, write rsp to RAM[END-8]. End of ram is initialized with with
+        // the OS provided stack frame.
+        // TODO: Dynamic address
+        ; mov QWORD[0x401ff8], rsp
         // syscall number in the rax register
         // arguments are passed on the registers rdi, rsi, rdx, r10, r8 and r9
         ; mov eax, WORD 0x2000004 // sys_write(fd, buffer, length)
@@ -186,6 +197,7 @@ pub fn codegen(destination: &PathBuf) -> Result<(), Box<dyn Error>> {
         ; mov esi, 0x2000
         ; mov edx, BYTE string.len() as _
         ; syscall
+        // TODO: Dynamic address depending on code size
         ; mov DWORD [0x3000], BYTE 42
         ; mov eax, WORD 0x2000001 // sys_exit(code)
         ; mov edi, 0
