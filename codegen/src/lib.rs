@@ -60,7 +60,9 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
     const PAGE: usize = 4096;
     const RAM_PAGES: usize = 1024; // 4MB RAM
 
-    let code_pages = (code.len() + PAGE - 1) / PAGE;
+    let num_segments = 4;
+    let header_size: usize = 32 + 72 * num_segments + 184;
+    let code_pages = (code.len() + header_size + PAGE - 1) / PAGE;
     let rom_pages = (rom.len() + PAGE - 1) / PAGE;
     let ram_init_pages = (ram.len() + PAGE - 1) / PAGE;
     let ram_pages = std::cmp::max(RAM_PAGES, ram_init_pages);
@@ -93,18 +95,17 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
             ; .dword 0          // Flags
         );
     }
-    let num_segments = 3;
     let mut vm_offset = 0;
     let mut file_offset = 0;
 
-    // Mach-O header (64 bytes)
+    // Mach-O header (32 bytes)
     dynasm!(ops
         ; .dword 0xfeedfacf_u32 as i32 // Magic
         ; .dword 0x01000007_u32 as i32 // Cpu type x86_64
         ; .dword 0x80000003_u32 as i32 // Cpu subtype (i386)
         ; .dword 0x2        // Type: executable
-        ; .dword num_segments + 1          // num_commands: 3
-        ; .dword num_segments * 72 + 184  // Size of commands
+        ; .dword (num_segments + 1) as i32         // num_commands
+        ; .dword (num_segments * 72 + 184) as i32  // Size of commands
         ; .dword 0x1        // Noun definitions
         ; .dword 0          // Reserved
     );
@@ -116,17 +117,14 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
     // XNU insists there is one R_X segment starting from the start of the file,
     // even tough this includes the non-executable the Mach-O headers.
     // See <https://github.com/apple/darwin-xnu/blob/a449c6a/bsd/kern/mach_loader.c#L985>
-    segment(&mut ops, vm_offset, 1 + code_pages, 0, 1 + code_pages, 5);
-    vm_offset += 1 + code_pages;
-    file_offset += 1 + code_pages;
+    segment(&mut ops, vm_offset, code_pages, 0, code_pages, 5);
+    vm_offset += code_pages;
+    file_offset += code_pages;
     // ROM (R__)
-    if rom_pages > 0 {
-        segment(&mut ops, vm_offset, rom_pages, file_offset, rom_pages, 1);
-        vm_offset += rom_pages;
-        file_offset += rom_pages;
-    }
+    segment(&mut ops, vm_offset, rom_pages, file_offset, rom_pages, 1);
+    vm_offset += rom_pages;
+    file_offset += rom_pages;
     // RAM (RW_)
-    /*
     segment(
         &mut ops,
         vm_offset,
@@ -135,9 +133,8 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
         ram_init_pages,
         3,
     );
-    vm_offset += ram_pages;
-    file_offset += ram_init_pages;
-    */
+    vm_offset += rom_pages;
+    file_offset += rom_pages;
 
     // Unix thread segment (184 bytes)
     dynasm!(ops
@@ -148,7 +145,7 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
         ; .qword 0, 0, 0, 0 // r0, r3, r1, r2 (rax, rbx, rcx, rdx)
         ; .qword 0, 0, 0, 0 // r7, r6, r5, r4 (rdi, rsi, rbp, rsp)
         ; .qword 0, 0, 0, 0, 0, 0, 0, 0 // r8..r15
-        ; .qword (2 * PAGE) as i64 // rip
+        ; .qword (PAGE + header_size) as i64 // rip
         ; .qword 0, 0, 0, 0 // rflags, cs, fs, gs
     );
     // Because `rsp` is zero, a default stack will be allocated by the
@@ -159,14 +156,19 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
     // RW_ memory and
 
     let mut result = ops.finalize().unwrap()[..].to_owned();
-    zero_pad_to_boundary(&mut result, PAGE);
-    assert_eq!(result.len(), PAGE);
+    assert_eq!(result.len(), header_size);
     result.extend(code);
     zero_pad_to_boundary(&mut result, PAGE);
+    assert_eq!(result.len(), code_pages * PAGE);
     result.extend(rom);
     zero_pad_to_boundary(&mut result, PAGE);
+    assert_eq!(result.len(), (code_pages + rom_pages) * PAGE);
     result.extend(ram);
     zero_pad_to_boundary(&mut result, PAGE);
+    assert_eq!(
+        result.len(),
+        (code_pages + rom_pages + ram_init_pages) * PAGE
+    );
     result
 }
 
@@ -181,9 +183,10 @@ pub fn codegen(destination: &PathBuf) -> Result<(), Box<dyn Error>> {
         // arguments are passed on the registers rdi, rsi, rdx, r10, r8 and r9
         ; mov eax, WORD 0x2000004 // sys_write(fd, buffer, length)
         ; mov edi, BYTE 1
-        ; mov esi, 0x3000
+        ; mov esi, 0x2000
         ; mov edx, BYTE string.len() as _
         ; syscall
+        // ; mov *0x3000, QWORD 42
         ; mov eax, WORD 0x2000001 // sys_exit(code)
         ; mov edi, 0
         ; syscall
