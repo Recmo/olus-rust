@@ -1,2 +1,3 @@
-square n ret ↦
-    ret mul n n
+main ↦
+    print “Hello, World!” (↦)
+    exit 42
