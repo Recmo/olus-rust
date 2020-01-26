@@ -11,22 +11,27 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
-// Calling convention:
+// For Dynasm syntax see
+// <https://censoredusername.github.io/dynasm-rs/language/langref_x64.html#register>
+
+// Oluś default calling convention:
 // r0: current closure pointer
 // r1..r15: arguments
 
+// Syscalls are in r0, r7, r6, r2, r10, r8, r9, returns in r0, r1 clobbers r11
+// See <https://github.com/hjl-tools/x86-psABI/wiki/X86-psABI> A.2.1
+// See <https://github.com/apple/darwin-xnu/blob/master/bsd/kern/syscalls.master>
+
+// TODO: This intrinsics don't need a closure to be passed. They can have a
+// more optimized calling convention.
+
 /// Emit the print builtin
 /// `print str ret`
-fn println(ops: &mut dynasmrt::x64::Assembler) {
-    // TODO: This builtin doesn't need a closure to be passed. It can have a
-    // more optimized calling convention.
+fn sys_print(ops: &mut dynasmrt::x64::Assembler) {
     dynasm!(ops
         // Back up ret to r15
         ; mov r15, r2
         // sys_write(fd, buffer, length)
-        // Syscalls are in r0, r7, r6, r2, r10, r8, r9, returns in r0, r1 clobbers r11
-        // See <https://github.com/hjl-tools/x86-psABI/wiki/X86-psABI> A.2.1
-        // See <https://github.com/apple/darwin-xnu/blob/master/bsd/kern/syscalls.master>
         ; mov r0d, WORD 0x2000004
         ; mov r7d, BYTE 1
         ; lea r6, [r1 + 4]
@@ -38,6 +43,17 @@ fn println(ops: &mut dynasmrt::x64::Assembler) {
     );
 }
 
+/// Emit the exit builtin
+/// `exit code`
+fn sys_exit(ops: &mut dynasmrt::x64::Assembler) {
+    dynasm!(ops
+        // sys_exit(code)
+        ; mov r0d, WORD 0x2000001
+        ; mov r7, r1
+        ; syscall
+    );
+}
+
 fn zero_pad_to_boundary(vec: &mut Vec<u8>, block_size: usize) {
     let trailing = vec.len() % block_size;
     if trailing > 0 {
@@ -46,15 +62,11 @@ fn zero_pad_to_boundary(vec: &mut Vec<u8>, block_size: usize) {
     }
 }
 
+// NOTE: The documentation on Mach-O is incomplete compared to the source. XNU
+// is substantially stricter than the documentation may appear.
 // See <https://pewpewthespells.com/re/Mach-O_File_Format.pdf>
 // See <https://github.com/apple/darwin-xnu/blob/master/EXTERNAL_HEADERS/mach-o/loader.h>
-// See
-// <https://github.com/apple/darwin-xnu/blob/master/bsd/kern/mach_loader.c>
-// See
-// <https://censoredusername.github.io/dynasm-rs/language/langref_x64.html>
-// TODO: Figure out how the stack is allocated (it seems that LC_UNIXTHREAD comes with a stack)
-// TODO: Figure out how environment and command line arguments are passed.
-// https://embeddedartistry.com/blog/2019/05/20/exploring-startup-implementations-os-x/
+// See <https://github.com/apple/darwin-xnu/blob/master/bsd/kern/mach_loader.c>
 fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
     // Page size
     const PAGE: usize = 4096;
@@ -101,9 +113,9 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
 
     // Mach-O header (32 bytes)
     dynasm!(ops
-        ; .dword 0xfeedfacf_u32 as i32 // Magic
-        ; .dword 0x01000007_u32 as i32 // Cpu type x86_64
-        ; .dword 0x80000003_u32 as i32 // Cpu subtype (i386)
+        ; .dword 0xfeed_facf_u32 as i32 // Magic
+        ; .dword 0x0100_0007_u32 as i32 // Cpu type x86_64
+        ; .dword 0x8000_0003_u32 as i32 // Cpu subtype (i386)
         ; .dword 0x2        // Type: executable
         ; .dword (num_segments + 1) as i32         // num_commands
         ; .dword (num_segments * 72 + 184) as i32  // Size of commands
@@ -134,8 +146,6 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
         ram_init_pages,
         3,
     );
-    vm_offset += rom_pages;
-    file_offset += rom_pages;
 
     // Unix thread segment (184 bytes)
     // rip need to be initialized to the start of the program.
@@ -180,33 +190,65 @@ fn macho(code: &[u8], rom: &[u8], ram: &[u8]) -> Vec<u8> {
 }
 
 pub fn codegen(destination: &PathBuf) -> Result<(), Box<dyn Error>> {
-    let mut ops = dynasmrt::x64::Assembler::new()?;
-    let string = "Hello, World!\n";
+    let string = b"Hello, World!\n";
 
-    // https://www.idryman.org/blog/2014/12/02/writing-64-bit-assembly-on-mac-os-x/
-    // https://censoredusername.github.io/dynasm-rs/language/langref_x64.html#register
-    dynasm!(ops
+    let mut code = dynasmrt::x64::Assembler::new()?;
+    dynasm!(code
         // Prelude, write rsp to RAM[END-8]. End of ram is initialized with with
         // the OS provided stack frame.
-        // TODO: Dynamic address
+        // TODO: Replace constant with expression
         ; mov QWORD[0x401ff8], rsp
-        // syscall number in the rax register
-        // arguments are passed on the registers rdi, rsi, rdx, r10, r8 and r9
-        ; mov eax, WORD 0x2000004 // sys_write(fd, buffer, length)
-        ; mov edi, BYTE 1
-        ; mov esi, 0x2000
-        ; mov edx, BYTE string.len() as _
-        ; syscall
-        // TODO: Dynamic address depending on code size
-        ; mov DWORD [0x3000], BYTE 42
-        ; mov eax, WORD 0x2000001 // sys_exit(code)
-        ; mov edi, 0
-        ; syscall
-    );
-    ops.commit()?;
-    let buf = ops.finalize().expect("Finalize after commit.");
 
-    let exe = macho(&*buf, &b"Hello, world!\n"[..], &[]);
+        // Jump to closure at rom zero
+        ; mov r0, 0x2000
+        ; jmp QWORD [r0]
+    );
+    dbg!(code.offset());
+
+    // TODO: Don't hardcode rom offset
+    dynasm!(code
+        ; mov r1, 0x2000 + 8
+        ; mov r2, 0x2000 + 26
+        ; jmp DWORD (58 - 36) // Jumps are relative to end of instruction
+    );
+    dbg!(code.offset());
+
+    dynasm!(code
+        ; mov r1, 42
+        ; jmp DWORD (48 - 48) // Jumps are relative to end of instruction
+    );
+    dbg!(code.offset());
+
+    // Add intrinsic functions
+    dbg!(code.offset());
+    sys_exit(&mut code);
+    dbg!(code.offset());
+    sys_print(&mut code);
+
+    code.commit()?;
+    let code = code.finalize().expect("Finalize after commit.");
+
+    // Assemble rom
+    let mut rom = dynasmrt::x64::Assembler::new()?;
+    dynasm!(rom
+        // Closure 0
+        ; .qword 0x11f8 + 17
+    );
+    dbg!(rom.offset());
+    dynasm!(rom
+        // String
+        ; .dword string.len() as i32
+        ; .bytes string
+    );
+    dbg!(rom.offset());
+    dynasm!(rom
+        // Closure 1
+        ; .qword 0x11f8 + 36
+    );
+    rom.commit()?;
+    let rom = rom.finalize().expect("Finalize after commit.");
+
+    let exe = macho(&*code, &*rom, &[]);
     {
         let mut file = File::create(destination)?;
         file.write_all(&exe)?;
@@ -218,11 +260,5 @@ pub fn codegen(destination: &PathBuf) -> Result<(), Box<dyn Error>> {
         fs::set_permissions(destination, perms)?;
     }
 
-    /*
-    println!("Running...");
-    let hello_fn: extern "win64" fn() -> bool = unsafe { mem::transmute(buf.ptr(hello)) };
-    hello_fn();
-    println!("And back!");
-    */
     Ok(())
 }
