@@ -8,9 +8,24 @@ use dynasmrt::{x64::Assembler, DynasmApi, DynasmLabelApi};
 // TODO: These intrinsics don't need a closure to be passed. They can have a
 // more optimized calling convention.
 
+pub fn intrinsic(ops: &mut Assembler, name: &str) {
+    match name {
+        "exit" => sys_exit(ops),
+        "print" => sys_print(ops),
+        "add" => add(ops),
+        "sub" => sub(ops),
+        "mul" => mul(ops),
+        "isZero" => is_zero(ops),
+        // TODO:
+        "input" => is_zero(ops),
+        "parseInt" => is_zero(ops),
+        _ => panic!("Unknown intrinsic {}", name),
+    }
+}
+
 /// Emit the exit builtin
 /// `exit code`
-pub fn sys_exit(ops: &mut dynasmrt::x64::Assembler) {
+pub fn sys_exit(ops: &mut Assembler) {
     dynasm!(ops
         // sys_exit(code)
         ; mov r0d, WORD 0x2000001
@@ -47,12 +62,33 @@ pub fn add(ops: &mut dynasmrt::x64::Assembler) {
     );
 }
 
+/// Emit the add builtin
+/// `sub a b ret`
+pub fn sub(ops: &mut dynasmrt::x64::Assembler) {
+    dynasm!(ops
+        ; sub r1, r2
+        ; mov r0, r3
+        ; jmp QWORD [r0]
+    );
+}
+
 /// Emit the mul builtin
 /// `mul a b ret`
-pub fn add(ops: &mut dynasmrt::x64::Assembler) {
+pub fn mul(ops: &mut dynasmrt::x64::Assembler) {
     dynasm!(ops
-        ; mul r1, r2
+        ; mulx r0, r1, r1 // r0:r1 = r1 * r2
         ; mov r0, r3
+        ; jmp QWORD [r0]
+    );
+}
+
+/// Emit the isZero builtin
+/// `isZero n true false`
+pub fn is_zero(ops: &mut dynasmrt::x64::Assembler) {
+    dynasm!(ops
+        ; test r1, r1
+        ; mov r0, r2
+        ; cmovnz r0, r3
         ; jmp QWORD [r0]
     );
 }

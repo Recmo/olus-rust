@@ -55,7 +55,6 @@ impl Module {
                 })
             }
             Literal(s) => {
-                dbg!(&s);
                 Expression::Literal(if let Some(i) = self.strings.iter().position(|e| e == &s) {
                     i
                 } else {
@@ -83,6 +82,7 @@ impl Module {
     }
 
     pub fn compute_closures(&mut self) {
+        self.find_names();
         for decl in self.declarations.iter_mut() {
             let mut provided = BitVec::repeat(false, self.symbols.len());
             for i in &decl.procedure {
@@ -91,24 +91,20 @@ impl Module {
             let mut required = BitVec::repeat(false, self.symbols.len());
             for e in &decl.call {
                 if let Expression::Symbol(i) = e {
-                    // TODO
-                    required.set(*i, true);
+                    let is_name = self.names[*i];
+                    if !is_name {
+                        required.set(*i, true);
+                    } else {
+                        dbg!(*i);
+                        // TODO
+                    }
                 }
             }
-            provided &= !required;
-            dbg!(provided);
+            let closure = required & !provided;
 
             // First approximation: Closure is call - procedure
-            decl.closure = decl
-                .call
-                .iter()
-                .filter_map(|e| {
-                    match e {
-                        Expression::Symbol(i) => Some(*i),
-                        _ => None,
-                    }
-                })
-                .filter(|i| !decl.procedure.as_slice().contains(i))
+            decl.closure = (0..self.symbols.len())
+                .filter(|i| closure[*i])
                 .collect::<Vec<_>>();
             // If a closure element is a name, it will be recursively replaced
             // by the associated closure. But note that we still filter out

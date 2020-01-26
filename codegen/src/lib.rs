@@ -1,12 +1,17 @@
 // Required for dynasm!
 #![feature(proc_macro_hygiene)]
+#![feature(const_in_array_repeat_expressions)]
 
 mod intrinsics;
 mod macho;
+mod memory;
+mod utils;
 
 use crate::{
-    intrinsics::{sys_exit, sys_print},
-    macho::{Assembly, CODE_START, ROM_START},
+    intrinsics::intrinsic,
+    macho::{Assembly, CODE_START, RAM_START, ROM_START},
+    memory::{Allocator, Bump},
+    utils::assemble_literal,
 };
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi, DynasmLabelApi};
@@ -27,33 +32,58 @@ use std::{
 // r0: current closure pointer
 // r1..r15: arguments
 
-fn assemble_alloc(code: &mut Assembler, size: usize) {
-    // Read current free memory pointer
-    dynasm!(code
-        ; mov r15d, DWORD [RAM_START]
-    );
-
-    // Add size to free memory pointer
-    if size <= 255 {
-        dynasm!(code
-            ; add DWORD [RAM_START], BYTE size as i8
-        );
-    } else if size <= u32::max().into() {
-        dynasm!(code
-            ; add DWORD [RAM_START], DWORD size as i32
-        );
-    } else {
-        panic!("Can not allocate more than 4GB.");
-    }
-}
-
 fn assemble_decl(code: &mut Assembler, module: &Module, decl: &Declaration) {
+    // At start the register are in state:
+    let mut state = [Option::<Expression>::None; 16];
+    for (index, symbol) in decl.procedure.iter().enumerate() {
+        state[index] = Some(Expression::Symbol(*symbol));
+    }
+    dbg!(state);
+
+    // We need to turn them into:
+    let mut target = [Option::<Expression>::None; 16];
+    for (index, expr) in decl.call.iter().enumerate() {
+        target[index] = Some(expr.clone());
+    }
+    dbg!(target);
+
+    // Rough order:
+    // * Drop registers? (depends on type)
+    // * Shuffle registers? (Can also have duplicates and drops)
+    // * Create closures
+    // * Load closure values
+    // * Load all the literals
+    // * Copy registers
+
     for (i, expr) in decl.call.iter().enumerate() {
-        let literal = get_literal(module, expr);
-        // TODO: Support taking values from arguments or closures (may need to use xchg)
-        // TODO: Support creating closures
-        dbg!(i, expr, literal);
-        assemble_literal(code, i, literal);
+        println!("r{} = {:?}", i, expr);
+        if let Some(literal) = get_literal(module, expr) {
+            println!("{:?} is literal {:?}", expr, literal);
+            assemble_literal(code, i, literal);
+        } else if let Expression::Symbol(s) = expr {
+            if let Some(reg) = decl.procedure.iter().position(|p| *p == *s) {
+                println!("{:?} is arg {:?}", expr, reg);
+            } else if let Some(var) = decl.closure.iter().position(|p| *p == *s) {
+                println!("{:?} is closure param {:?}", expr, var);
+            } else if module.names[*s] {
+                let cdecl = module
+                    .declarations
+                    .iter()
+                    .find(|decl| decl.procedure[0] == *s)
+                    .unwrap();
+                assert!(cdecl.closure.len() > 0);
+                println!(
+                    "{:?} is a closure of {:?}{:?}",
+                    expr, cdecl.procedure[0], cdecl.closure
+                );
+                //
+                Bump::alloc(code, i, (1 + cdecl.closure.len()) * 8);
+            } else {
+                panic!("Can't handle symbol");
+            }
+        } else {
+            panic!("Can't handle expression");
+        }
     }
     // Make a closure call
     dynasm!(code
@@ -65,10 +95,25 @@ fn assemble_decl(code: &mut Assembler, module: &Module, decl: &Declaration) {
     // * fall-through.
 }
 
-fn get_literal(module: &Module, expr: &Expression) -> u64 {
-    match expr {
+fn get_literal(module: &Module, expr: &Expression) -> Option<u64> {
+    Some(match expr {
         Expression::Number(i) => module.numbers[*i],
-        Expression::Symbol(i) => (ROM_START + *i * 8) as u64,
+        Expression::Symbol(i) => {
+            if !module.names[*i] {
+                // Not a name (must be argument or closure content)
+                return None;
+            }
+            let decl = module
+                .declarations
+                .iter()
+                .find(|decl| decl.procedure[0] == *i)
+                .unwrap();
+            if decl.closure.len() > 0 {
+                // Symbol requires a closure
+                return None;
+            }
+            (ROM_START + *i * 8) as u64
+        }
         Expression::Import(i) => (ROM_START + (module.symbols.len() + *i) * 8) as u64,
         Expression::Literal(i) => {
             let mut offset = ROM_START + (module.symbols.len() + module.imports.len()) * 8;
@@ -77,53 +122,7 @@ fn get_literal(module: &Module, expr: &Expression) -> u64 {
             }
             offset as u64
         }
-    }
-}
-
-fn assemble_literal(code: &mut Assembler, reg: usize, literal: u64) {
-    if literal <= u32::max_value().into() {
-        let literal = literal as i32;
-        match reg {
-            0 => dynasm!(code; mov r0d, DWORD literal),
-            1 => dynasm!(code; mov r1d, DWORD literal),
-            2 => dynasm!(code; mov r2d, DWORD literal),
-            3 => dynasm!(code; mov r3d, DWORD literal),
-            4 => dynasm!(code; mov r4d, DWORD literal),
-            5 => dynasm!(code; mov r5d, DWORD literal),
-            6 => dynasm!(code; mov r6d, DWORD literal),
-            7 => dynasm!(code; mov r7d, DWORD literal),
-            8 => dynasm!(code; mov r8d, DWORD literal),
-            9 => dynasm!(code; mov r9d, DWORD literal),
-            10 => dynasm!(code; mov r10d, DWORD literal),
-            11 => dynasm!(code; mov r11d, DWORD literal),
-            12 => dynasm!(code; mov r12d, DWORD literal),
-            13 => dynasm!(code; mov r13d, DWORD literal),
-            14 => dynasm!(code; mov r14d, DWORD literal),
-            15 => dynasm!(code; mov r15d, DWORD literal),
-            _ => panic!("Unknown register"),
-        }
-    } else {
-        let literal = literal as i64;
-        match reg {
-            0 => dynasm!(code; mov r0, QWORD literal),
-            1 => dynasm!(code; mov r1, QWORD literal),
-            2 => dynasm!(code; mov r2, QWORD literal),
-            3 => dynasm!(code; mov r3, QWORD literal),
-            4 => dynasm!(code; mov r4, QWORD literal),
-            5 => dynasm!(code; mov r5, QWORD literal),
-            6 => dynasm!(code; mov r6, QWORD literal),
-            7 => dynasm!(code; mov r7, QWORD literal),
-            8 => dynasm!(code; mov r8, QWORD literal),
-            9 => dynasm!(code; mov r9, QWORD literal),
-            10 => dynasm!(code; mov r10, QWORD literal),
-            11 => dynasm!(code; mov r11, QWORD literal),
-            12 => dynasm!(code; mov r12, QWORD literal),
-            13 => dynasm!(code; mov r13, QWORD literal),
-            14 => dynasm!(code; mov r14, QWORD literal),
-            15 => dynasm!(code; mov r15, QWORD literal),
-            _ => panic!("Unknown register"),
-        }
-    }
+    })
 }
 
 pub fn compile_code(module: &Module) -> (Vec<u8>, Vec<usize>) {
@@ -155,11 +154,7 @@ pub fn compile_code(module: &Module) -> (Vec<u8>, Vec<usize>) {
     // Intrinsic functions
     for import in module.imports.iter() {
         offsets.push(code.offset().0);
-        match import.as_ref() {
-            "exit" => sys_exit(&mut code),
-            "print" => sys_print(&mut code),
-            _ => panic!("Unknown import"),
-        }
+        intrinsic(&mut code, import);
     }
     let code = code.finalize().expect("Finalize after commit.");
     (code.to_vec(), offsets)
