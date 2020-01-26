@@ -284,7 +284,6 @@ pub fn galactase(block: &mut Statement, binder_id: &mut usize) {
 pub fn desugar(block: &mut Statement) {
     let mut binder_count = bind(block);
     glucase_wrap(block);
-    dbg!(&block);
     galactase(block, &mut binder_count);
     fructase(block, &mut binder_count);
 }

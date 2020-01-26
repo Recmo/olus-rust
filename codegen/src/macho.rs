@@ -1,19 +1,28 @@
 use dynasm::dynasm;
 use dynasmrt::{DynasmApi, DynasmLabelApi};
-use std::error::Error;
-use std::fs;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::Write;
-use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::{
+    error::Error,
+    fs,
+    fs::File,
+    io::{prelude::*, Write},
+    os::unix::fs::PermissionsExt,
+    path::PathBuf,
+};
+
+// TODO: These are not constant
+pub const CODE_START: usize = 0x11f8;
+pub const ROM_START: usize = 0x2000;
+pub const RAM_START: usize = 0x3000;
+
+const PAGE: usize = 4096;
+const RAM_PAGES: usize = 1024; // 4MB RAM
 
 /// The `code`, `rom` and `ram` segments will be extended to 4k page boundaries,
 /// concatenated and loaded at address 0x1000. Ram will be extended to 4MB.
 pub struct Assembly {
     pub code: Vec<u8>,
-    pub rom: Vec<u8>,
-    pub ram: Vec<u8>,
+    pub rom:  Vec<u8>,
+    pub ram:  Vec<u8>,
 }
 
 impl Assembly {
@@ -38,10 +47,6 @@ impl Assembly {
     // See <https://github.com/apple/darwin-xnu/blob/master/EXTERNAL_HEADERS/mach-o/loader.h>
     // See <https://github.com/apple/darwin-xnu/blob/master/bsd/kern/mach_loader.c>
     pub fn to_macho(&self) -> Vec<u8> {
-        // Page size
-        const PAGE: usize = 4096;
-        const RAM_PAGES: usize = 1024; // 4MB RAM
-
         let num_segments = 4;
         let header_size: usize = 32 + 72 * num_segments + 184;
         let code_pages = (self.code.len() + header_size + PAGE - 1) / PAGE;
@@ -144,6 +149,7 @@ impl Assembly {
         // Concatenate all the pages
         let mut result = ops.finalize().unwrap()[..].to_owned();
         assert_eq!(result.len(), header_size);
+        assert_eq!(result.len(), CODE_START - PAGE);
         result.extend(&self.code);
         zero_pad_to_boundary(&mut result, PAGE);
         assert_eq!(result.len(), code_pages * PAGE);

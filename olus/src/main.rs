@@ -37,11 +37,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap();
 
     // Compile
-    let olus = parse_file(&options.input);
+    let olus = parse_file(&options.input)?;
     dbg!(&olus);
 
     // Codegen
-    codegen(&options.output.unwrap_or("a.out".into()))?;
+    codegen(&olus, &options.output.unwrap_or("a.out".into()))?;
 
     Ok(())
 }

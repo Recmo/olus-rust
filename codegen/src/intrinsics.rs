@@ -1,4 +1,5 @@
 use dynasm::dynasm;
+use dynasmrt::x64::Assembler;
 use dynasmrt::{DynasmApi, DynasmLabelApi};
 
 // Syscalls are in r0, r7, r6, r2, r10, r8, r9, returns in r0, r1 clobbers r11

@@ -26,8 +26,7 @@ pub fn parse_file(name: &PathBuf) -> io::Result<Mir::Module> {
     let text = std::str::from_utf8(mmap.as_ref()).expect("Not UTF-8"); // TODO: Convert error
     let mut ast = parse_olus(text);
     desugar::desugar(&mut ast);
-    dbg!(&ast);
-    let module = Mir::ast_to_module(ast);
+    let mut module = Mir::Module::from(&ast);
     Ok(module)
 }
 
