@@ -1,11 +1,11 @@
 Phase 0:
-* Codegen to x86_64 Mach-O exec without stack.
+* Codegen to x86_64 Mach-O exec without stack. (DONE)
 * Bump allocator for closures, no deallocation.
 * Hardcoded closure size, function in header
 * Closure & 64 bit register type.
 * `add` `sub` `mul` `iszero` builtins
-* Calling conventions: closure in r0, args in r1..r15, fail when >15 args.
-* Deduplicate literals
+* Calling conventions: closure in r0, args in r1..r15, fail when >15 args. (DONE)
+* Deduplicate literals (DONE)
 
 Phase 1:
 * Constant time reference counting.

@@ -27,6 +27,26 @@ use std::{
 // r0: current closure pointer
 // r1..r15: arguments
 
+fn assemble_alloc(code: &mut Assembler, size: usize) {
+    // Read current free memory pointer
+    dynasm!(code
+        ; mov r15d, DWORD [RAM_START]
+    );
+
+    // Add size to free memory pointer
+    if size <= 255 {
+        dynasm!(code
+            ; add DWORD [RAM_START], BYTE size as i8
+        );
+    } else if size <= u32::max().into() {
+        dynasm!(code
+            ; add DWORD [RAM_START], DWORD size as i32
+        );
+    } else {
+        panic!("Can not allocate more than 4GB.");
+    }
+}
+
 fn assemble_decl(code: &mut Assembler, module: &Module, decl: &Declaration) {
     for (i, expr) in decl.call.iter().enumerate() {
         let literal = get_literal(module, expr);
@@ -35,9 +55,14 @@ fn assemble_decl(code: &mut Assembler, module: &Module, decl: &Declaration) {
         dbg!(i, expr, literal);
         assemble_literal(code, i, literal);
     }
+    // Make a closure call
     dynasm!(code
         ; jmp QWORD [r0]
     );
+    // TODO: Support
+    // * non closure jump `jmp r0`,
+    // * constant jump `jmp OFFSET` and
+    // * fall-through.
 }
 
 fn get_literal(module: &Module, expr: &Expression) -> u64 {

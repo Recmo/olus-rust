@@ -1,6 +1,5 @@
 use dynasm::dynasm;
-use dynasmrt::x64::Assembler;
-use dynasmrt::{DynasmApi, DynasmLabelApi};
+use dynasmrt::{x64::Assembler, DynasmApi, DynasmLabelApi};
 
 // Syscalls are in r0, r7, r6, r2, r10, r8, r9, returns in r0, r1 clobbers r11
 // See <https://github.com/hjl-tools/x86-psABI/wiki/X86-psABI> A.2.1
@@ -8,6 +7,17 @@ use dynasmrt::{DynasmApi, DynasmLabelApi};
 
 // TODO: These intrinsics don't need a closure to be passed. They can have a
 // more optimized calling convention.
+
+/// Emit the exit builtin
+/// `exit code`
+pub fn sys_exit(ops: &mut dynasmrt::x64::Assembler) {
+    dynasm!(ops
+        // sys_exit(code)
+        ; mov r0d, WORD 0x2000001
+        ; mov r7, r1
+        ; syscall
+    );
+}
 
 /// Emit the print builtin
 /// `print str ret`
@@ -27,13 +37,22 @@ pub fn sys_print(ops: &mut dynasmrt::x64::Assembler) {
     );
 }
 
-/// Emit the exit builtin
-/// `exit code`
-pub fn sys_exit(ops: &mut dynasmrt::x64::Assembler) {
+/// Emit the add builtin
+/// `add a b ret`
+pub fn add(ops: &mut dynasmrt::x64::Assembler) {
     dynasm!(ops
-        // sys_exit(code)
-        ; mov r0d, WORD 0x2000001
-        ; mov r7, r1
-        ; syscall
+        ; add r1, r2
+        ; mov r0, r3
+        ; jmp QWORD [r0]
+    );
+}
+
+/// Emit the mul builtin
+/// `mul a b ret`
+pub fn add(ops: &mut dynasmrt::x64::Assembler) {
+    dynasm!(ops
+        ; mul r1, r2
+        ; mov r0, r3
+        ; jmp QWORD [r0]
     );
 }
