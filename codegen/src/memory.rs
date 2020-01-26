@@ -1,6 +1,6 @@
 use crate::{macho::RAM_START, utils::assemble_read4};
 use dynasm::dynasm;
-use dynasmrt::{x64::Assembler, DynasmApi, DynasmLabelApi};
+use dynasmrt::{x64::Assembler, DynasmApi};
 
 pub trait Allocator {
     fn alloc(code: &mut Assembler, reg: usize, size: usize);
@@ -18,7 +18,7 @@ impl Allocator for Bump {
         // Add size to free memory pointer
         if size <= 127 {
             dynasm!(code
-                ; add DWORD [RAM_START as i32], BYTE (size as i32) // TODO
+                ; add DWORD [RAM_START as i32], BYTE size as i32 // TODO
             );
         } else if size <= (u32::max_value() as usize) {
             dynasm!(code
@@ -30,7 +30,7 @@ impl Allocator for Bump {
     }
 
     /// Deallocate bytes pointed to by register `reg`
-    fn drop(code: &mut Assembler, reg: usize) {
+    fn drop(_code: &mut Assembler, _reg: usize) {
         // Do nothing
     }
 }

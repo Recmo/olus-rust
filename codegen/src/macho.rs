@@ -1,13 +1,6 @@
 use dynasm::dynasm;
-use dynasmrt::{DynasmApi, DynasmLabelApi};
-use std::{
-    error::Error,
-    fs,
-    fs::File,
-    io::{prelude::*, Write},
-    os::unix::fs::PermissionsExt,
-    path::PathBuf,
-};
+use dynasmrt::DynasmApi;
+use std::{error::Error, fs, fs::File, io::Write, os::unix::fs::PermissionsExt, path::PathBuf};
 
 // TODO: These are not constant
 pub const CODE_START: usize = 0x11f8;

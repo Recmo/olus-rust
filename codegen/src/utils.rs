@@ -1,5 +1,5 @@
 use dynasm::dynasm;
-use dynasmrt::{x64::Assembler, DynasmApi, DynasmLabelApi};
+use dynasmrt::{x64::Assembler, DynasmApi};
 
 pub fn assemble_read4(code: &mut Assembler, reg: usize, address: usize) {
     assert!(address <= (u32::max_value() as usize));

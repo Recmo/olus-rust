@@ -1,0 +1,8 @@
+[alias]
+t = "test --all-features"
+b = "build --all-features --all-targets"
+lint = "clippy --all-features --all-targets -- -D warnings"
+
+# Build for the current CPU by default
+[build]
+rustflags = [ "-C", "target-cpu=native" ]

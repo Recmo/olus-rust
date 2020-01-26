@@ -1,4 +1,4 @@
-use crate::Ast;
+use crate::ast;
 use bitvec;
 use serde::{Deserialize, Serialize};
 
@@ -42,8 +42,8 @@ impl Module {
         n
     }
 
-    fn convert(&mut self, expr: Ast::Expression) -> Expression {
-        use Ast::Expression::*;
+    fn convert(&mut self, expr: ast::Expression) -> Expression {
+        use ast::Expression::*;
         match expr {
             Reference(Some(n), s) => Expression::Symbol(self.symbol(n, s)),
             Reference(None, s) => {
@@ -82,7 +82,6 @@ impl Module {
     }
 
     pub fn compute_closures(&mut self) {
-        self.find_names();
         for decl in self.declarations.iter_mut() {
             let mut provided = BitVec::repeat(false, self.symbols.len());
             for i in &decl.procedure {
@@ -113,16 +112,16 @@ impl Module {
     }
 }
 
-impl From<&Ast::Statement> for Module {
+impl From<&ast::Statement> for Module {
     /// Requires the block to be desugared
-    fn from(block: &Ast::Statement) -> Self {
+    fn from(block: &ast::Statement) -> Self {
         let mut module = Module::default();
-        if let Ast::Statement::Block(statements) = block {
+        if let ast::Statement::Block(statements) = block {
             module.declarations = statements
                 .iter()
                 .map(|statement| {
                     match statement {
-                        Ast::Statement::Closure(a, b) => {
+                        ast::Statement::Closure(a, b) => {
                             Declaration {
                                 procedure: a
                                     .iter()

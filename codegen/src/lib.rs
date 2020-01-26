@@ -9,21 +9,14 @@ mod utils;
 
 use crate::{
     intrinsics::intrinsic,
-    macho::{Assembly, CODE_START, RAM_START, ROM_START},
+    macho::{Assembly, CODE_START, ROM_START},
     memory::{Allocator, Bump},
     utils::assemble_literal,
 };
 use dynasm::dynasm;
-use dynasmrt::{x64::Assembler, DynasmApi, DynasmLabelApi};
-use parser::Mir::{Declaration, Expression, Module};
-use std::{
-    error::Error,
-    fs,
-    fs::File,
-    io::{prelude::*, Write},
-    os::unix::fs::PermissionsExt,
-    path::PathBuf,
-};
+use dynasmrt::{x64::Assembler, DynasmApi};
+use parser::mir::{Declaration, Expression, Module};
+use std::{error::Error, path::PathBuf};
 
 // For Dynasm syntax see
 // <https://censoredusername.github.io/dynasm-rs/language/langref_x64.html#register>
@@ -71,7 +64,7 @@ fn assemble_decl(code: &mut Assembler, module: &Module, decl: &Declaration) {
                     .iter()
                     .find(|decl| decl.procedure[0] == *s)
                     .unwrap();
-                assert!(cdecl.closure.len() > 0);
+                assert!(!cdecl.closure.is_empty());
                 println!(
                     "{:?} is a closure of {:?}{:?}",
                     expr, cdecl.procedure[0], cdecl.closure
@@ -108,7 +101,7 @@ fn get_literal(module: &Module, expr: &Expression) -> Option<u64> {
                 .iter()
                 .find(|decl| decl.procedure[0] == *i)
                 .unwrap();
-            if decl.closure.len() > 0 {
+            if !decl.closure.is_empty() {
                 // Symbol requires a closure
                 return None;
             }
@@ -139,7 +132,7 @@ pub fn compile_code(module: &Module) -> (Vec<u8>, Vec<usize>) {
         // Prelude, write rsp to RAM[END-8]. End of ram is initialized with with
         // the OS provided stack frame.
         // TODO: Replace constant with expression
-        ; mov QWORD[0x401ff8], rsp
+        ; mov QWORD[0x0040_1ff8], rsp
 
         // Jump to closure at rom zero
         // TODO: Lookup closure with name `main`
@@ -168,13 +161,13 @@ pub fn compile_rom(module: &Module, code_offsets: Vec<usize>) -> Vec<u8> {
     // Assemble rom
     let mut rom = dynasmrt::x64::Assembler::new().unwrap();
     let mut index = 0;
-    for decl in module.declarations.iter() {
+    for _decl in module.declarations.iter() {
         dynasm!(rom
             ; .qword (CODE_START + code_offsets[index]) as i64
         );
         index += 1;
     }
-    for import in module.imports.iter() {
+    for _import in module.imports.iter() {
         dynasm!(rom
             ; .qword (CODE_START + code_offsets[index]) as i64
         );

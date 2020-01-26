@@ -2,8 +2,10 @@
 #![allow(clippy::double_comparisons)] // Many false positives with nom macros.
 use nom::*;
 use std::str::FromStr;
-use unic::ucd::category::GeneralCategory;
-use unic::ucd::ident::{is_pattern_syntax, is_pattern_whitespace, is_xid_continue, is_xid_start};
+use unic::ucd::{
+    category::GeneralCategory,
+    ident::{is_pattern_syntax, is_pattern_whitespace, is_xid_continue, is_xid_start},
+};
 
 // UAX14 Line terminators (Mandatory Break BK)
 // @see https://www.unicode.org/reports/tr14/tr14-32.html
@@ -17,11 +19,13 @@ pub(crate) fn is_line_terminator(c: char) -> bool {
         '\u{C}' => true,  // Form Feed
         '\u{D}' => true,  // Carriage Return (unless followed by Line Feed)
         '\u{85}' => true, // Next Line
-        _ => match GeneralCategory::of(c) {
-            GeneralCategory::LineSeparator => true,
-            GeneralCategory::ParagraphSeparator => true,
-            _ => false,
-        },
+        _ => {
+            match GeneralCategory::of(c) {
+                GeneralCategory::LineSeparator => true,
+                GeneralCategory::ParagraphSeparator => true,
+                _ => false,
+            }
+        }
     }
 }
 
@@ -31,16 +35,18 @@ pub(crate) fn take_char<F>(pred: F) -> impl Fn(&str) -> IResult<&str, &str>
 where
     F: Fn(char) -> bool,
 {
-    move |input: &str| match input.chars().next() {
-        Some(c) => {
-            if pred(c) {
-                let l = c.len_utf8();
-                Ok((&input[l..], &input[..l]))
-            } else {
-                Err(Err::Error(error_position!(input, ErrorKind::Char)))
+    move |input: &str| {
+        match input.chars().next() {
+            Some(c) => {
+                if pred(c) {
+                    let l = c.len_utf8();
+                    Ok((&input[l..], &input[..l]))
+                } else {
+                    Err(Err::Error(error_position!(input, ErrorKind::Char)))
+                }
             }
+            None => Err(Err::Incomplete(Needed::Unknown)),
         }
-        None => Err(Err::Incomplete(Needed::Unknown)),
     }
 }
 
@@ -72,7 +78,7 @@ pub(crate) fn quoted(input: &str) -> IResult<&str, &str> {
     match input.chars().next() {
         None => return Err(Err::Incomplete(Needed::Size(2))),
         Some('“') => {}
-        Some(_c) => return Err(Err::Error(error_position!(input, ErrorKind::Tag))), // TODO: Custom error
+        Some(_c) => return Err(Err::Error(error_position!(input, ErrorKind::Tag))), /* TODO: Custom error */
     }
     let start = '“'.len_utf8();
     let mut depth = 1;
@@ -110,7 +116,7 @@ named!(pub(crate) numeral<&str, u64>,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_is_line_terminator() {
@@ -183,5 +189,4 @@ mod tests {
     fn parse_number() {
         assert_eq!(numeral("0123."), Ok((".", 123)));
     }
-
 }

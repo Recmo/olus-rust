@@ -1,7 +1,6 @@
 use codegen::codegen;
 use parser::parse_file;
-use std::error::Error;
-use std::path::PathBuf;
+use std::{error::Error, path::PathBuf};
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]

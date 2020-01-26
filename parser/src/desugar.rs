@@ -1,4 +1,4 @@
-use crate::Ast::*;
+use crate::ast::*;
 use std::collections::HashMap;
 
 pub trait Visitor {
@@ -106,8 +106,9 @@ pub fn bind(block: &mut Statement) -> usize {
         fn visit_binder(&mut self, n: &mut Option<usize>, s: &mut String) {
             // TODO: Scoping.
             // TODO: Forward looking.
-            self.0.insert(s.to_string(), n.unwrap());
+            self.0.insert((*s).to_string(), n.unwrap());
         }
+
         fn visit_reference(&mut self, n: &mut Option<usize>, s: &mut String) {
             *n = self.0.get(s).cloned();
         }
@@ -145,6 +146,7 @@ fn merge(target: &mut Vec<Expression>, call: Vec<Expression>) {
         fn visit_fructose(&mut self, _: &mut Vec<Binder>, tcall: &mut Vec<Expression>) {
             self.visit_galactose(tcall);
         }
+
         fn visit_galactose(&mut self, tcall: &mut Vec<Expression>) {
             if !self.0 && tcall.is_empty() {
                 *tcall = self.1.clone();
@@ -231,9 +233,11 @@ pub fn fructase(block: &mut Statement, binder_id: &mut usize) {
 
 pub fn galac_vec(exprs: &mut Vec<Expression>, binder_id: &mut usize) {
     // Find first Galactose or return
-    if let Some(index) = exprs.iter().position(|e| match e {
-        Expression::Galactose(_) => true,
-        _ => false,
+    if let Some(index) = exprs.iter().position(|e| {
+        match e {
+            Expression::Galactose(_) => true,
+            _ => false,
+        }
     }) {
         // Invert Galactose into Fructose
 
@@ -269,9 +273,11 @@ pub fn galactase(block: &mut Statement, binder_id: &mut usize) {
         fn visit_closure(&mut self, _: &mut Vec<Binder>, exprs: &mut Vec<Expression>) {
             galac_vec(exprs, &mut self.0);
         }
+
         fn visit_fructose(&mut self, _: &mut Vec<Binder>, exprs: &mut Vec<Expression>) {
             galac_vec(exprs, &mut self.0);
         }
+
         fn visit_galactose(&mut self, exprs: &mut Vec<Expression>) {
             galac_vec(exprs, &mut self.0);
         }
