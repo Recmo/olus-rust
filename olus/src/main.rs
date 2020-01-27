@@ -1,3 +1,36 @@
+#![forbid(unsafe_code)]
+#![warn(
+    // Enable sets of warnings
+    clippy::all,
+    clippy::pedantic,
+    clippy::cargo,
+    rust_2018_idioms,
+    future_incompatible,
+    unused,
+
+    // Additional unused warnings (not included in `unused`)
+    unused_lifetimes,
+    unused_qualifications,
+    unused_results,
+
+    // Additional misc. warnings
+    anonymous_parameters,
+    deprecated_in_future,
+    elided_lifetimes_in_paths,
+    explicit_outlives_requirements,
+    keyword_idents,
+    macro_use_extern_crate,
+    // TODO: missing_docs,
+    missing_doc_code_examples,
+    private_doc_tests,
+    single_use_lifetimes,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unsafe_code,
+    variant_size_differences
+)]
+
 use codegen::codegen;
 use parser::parse_file;
 use std::{error::Error, path::PathBuf};

@@ -1,3 +1,35 @@
+#![forbid(unsafe_code)]
+#![warn(
+    // Enable sets of warnings
+    clippy::all,
+    clippy::pedantic,
+    clippy::cargo,
+    rust_2018_idioms,
+    future_incompatible,
+    unused,
+
+    // Additional unused warnings (not included in `unused`)
+    unused_lifetimes,
+    unused_qualifications,
+    unused_results,
+
+    // Additional misc. warnings
+    anonymous_parameters,
+    deprecated_in_future,
+    elided_lifetimes_in_paths,
+    explicit_outlives_requirements,
+    keyword_idents,
+    macro_use_extern_crate,
+    // TODO: missing_docs,
+    missing_doc_code_examples,
+    private_doc_tests,
+    single_use_lifetimes,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unsafe_code,
+    variant_size_differences
+)]
 // Required for dynasm!
 #![feature(proc_macro_hygiene)]
 #![feature(const_in_array_repeat_expressions)]
@@ -16,6 +48,7 @@ use crate::{
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi};
 use parser::mir::{Declaration, Expression, Module};
+use serde::{Deserialize, Serialize};
 use std::{error::Error, path::PathBuf};
 
 // For Dynasm syntax see
@@ -25,21 +58,73 @@ use std::{error::Error, path::PathBuf};
 // r0: current closure pointer
 // r1..r15: arguments
 
-fn assemble_decl(code: &mut Assembler, module: &Module, decl: &Declaration) {
-    // At start the register are in state:
-    let mut state = [Option::<Expression>::None; 16];
-    for (index, symbol) in decl.procedure.iter().enumerate() {
-        state[index] = Some(Expression::Symbol(*symbol));
-    }
-    dbg!(state);
+// TODO: Two phase: first lay out code, then
 
-    // We need to turn them into:
-    let mut target = [Option::<Expression>::None; 16];
-    for (index, expr) in decl.call.iter().enumerate() {
-        target[index] = Some(expr.clone());
-    }
-    dbg!(target);
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
+struct MemoryLayout {
+    code:     Vec<usize>,
+    closures: Vec<usize>,
+    imports:  Vec<usize>,
+    strings:  Vec<usize>,
+}
 
+impl MemoryLayout {
+    fn from_module(module: &Module) -> MemoryLayout {
+        let mut result = MemoryLayout::default();
+        let mut offset: usize;
+
+        // Compute code layout by generating mock code
+        // (correct size, but wrong values in pointers)
+
+        // Compute const closure and import closure layout
+        offset = ROM_START;
+        for _decl in module.declarations {
+            result.closures.push(offset);
+            offset += 8;
+        }
+        for _import in module.imports {
+            result.imports.push(offset);
+            offset += 8;
+        }
+        for string in module.strings {
+            result.closures.push(offset);
+            offset += 4 + string.len();
+        }
+        result
+    }
+}
+
+struct MachineState {
+    registers: [Option<Expression>; 16],
+    // TODO: Flags
+}
+
+impl MachineState {
+    fn from_symbols(symbols: &[usize]) -> MachineState {
+        assert!(symbols.len() <= 16);
+        let mut registers = [None; 16];
+        for (index, symbol) in symbols.iter().enumerate() {
+            registers[index] = Some(Expression::Symbol(*symbol));
+        }
+        MachineState { registers }
+    }
+
+    fn from_expressions(exprs: &[Expression]) -> MachineState {
+        assert!(exprs.len() <= 16);
+        let mut registers = [Option::<Expression>::None; 16];
+        for (index, expr) in exprs.iter().enumerate() {
+            registers[index] = Some(expr.clone());
+        }
+        MachineState { registers }
+    }
+}
+
+fn code_transition(
+    module: &Module,
+    code: &mut Assembler,
+    current: &MachineState,
+    target: &MachineState,
+) {
     // Rough order:
     // * Drop registers? (depends on type)
     // * Shuffle registers? (Can also have duplicates and drops)
@@ -47,38 +132,47 @@ fn assemble_decl(code: &mut Assembler, module: &Module, decl: &Declaration) {
     // * Load closure values
     // * Load all the literals
     // * Copy registers
-
-    for (i, expr) in decl.call.iter().enumerate() {
-        println!("r{} = {:?}", i, expr);
-        if let Some(literal) = get_literal(module, expr) {
-            println!("{:?} is literal {:?}", expr, literal);
-            assemble_literal(code, i, literal);
-        } else if let Expression::Symbol(s) = expr {
-            if let Some(reg) = decl.procedure.iter().position(|p| *p == *s) {
-                println!("{:?} is arg {:?}", expr, reg);
-            } else if let Some(var) = decl.closure.iter().position(|p| *p == *s) {
-                println!("{:?} is closure param {:?}", expr, var);
-            } else if module.names[*s] {
-                let cdecl = module
-                    .declarations
-                    .iter()
-                    .find(|decl| decl.procedure[0] == *s)
-                    .unwrap();
-                assert!(!cdecl.closure.is_empty());
-                println!(
-                    "{:?} is a closure of {:?}{:?}",
-                    expr, cdecl.procedure[0], cdecl.closure
-                );
-                //
-                Bump::alloc(code, i, (1 + cdecl.closure.len()) * 8);
+    for (i, expr) in target.registers.iter().enumerate() {
+        if let Some(expr) = expr {
+            println!("r{} = {:?}", i, expr);
+            if let Some(literal) = get_literal(module, expr) {
+                println!("{:?} is literal {:?}", expr, literal);
+                assemble_literal(code, i, literal);
+            } else if let Expression::Symbol(s) = expr {
+                if let Some(reg) = current.registers.iter().position(|p| *p == Some(*expr)) {
+                    println!("{:?} is arg {:?}", expr, reg);
+                } else if let Some(var) = current.registers.iter().position(|p| *p == Some(*expr)) {
+                    println!("{:?} is closure param {:?}", expr, var);
+                } else if module.names[*s] {
+                    let cdecl = module
+                        .declarations
+                        .iter()
+                        .find(|decl| decl.procedure[0] == *s)
+                        .unwrap();
+                    assert!(!cdecl.closure.is_empty());
+                    println!(
+                        "{:?} is a closure of {:?}{:?}",
+                        expr, cdecl.procedure[0], cdecl.closure
+                    );
+                    //
+                    Bump::alloc(code, i, (1 + cdecl.closure.len()) * 8);
+                } else {
+                    panic!("Can't handle symbol");
+                }
             } else {
-                panic!("Can't handle symbol");
+                panic!("Can't handle expression");
             }
-        } else {
-            panic!("Can't handle expression");
         }
     }
-    // Make a closure call
+}
+
+fn assemble_decl(code: &mut Assembler, module: &Module, decl: &Declaration) {
+    // Transition into the correct machine state
+    let current = MachineState::from_symbols(decl.symbols);
+    let target = MachineState::from_expressions(decl.call);
+    code_transition(module, code, current, target);
+
+    // Call the closure
     dynasm!(code
         ; jmp QWORD [r0]
     );

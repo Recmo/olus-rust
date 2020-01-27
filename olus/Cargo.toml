@@ -4,10 +4,15 @@ description = "The Oluś programming language."
 version = "0.1.0"
 authors = ["Remco Bloemen <remco@wicked.ventures>"]
 edition = "2018"
+readme = "../README.md"
+repository = "https://github.com/Recmo/olus-rust"
+keywords = ["language", "compiler", "olus"]
+categories = ["command-line-utilities"]
+license = "MIT"
 
 [dependencies]
-log = "0.4.6"
-stderrlog = "0.4.1"
-structopt = "0.3"
+log = "0.4.8"
+stderrlog = "0.4.3"
+structopt = "0.3.8"
 parser = { path = "../parser" }
 codegen = { path = "../codegen" }

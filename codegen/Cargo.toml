@@ -1,11 +1,18 @@
 [package]
 name = "codegen"
+description = "The Oluś programming language."
 version = "0.1.0"
 authors = ["Remco Bloemen <remco@0x.org>"]
 edition = "2018"
+readme = "../README.md"
+repository = "https://github.com/Recmo/olus-rust"
+keywords = ["language", "compiler", "olus"]
+categories = ["emulator"]
+license = "MIT"
 
 [dependencies]
-log = "0.4.6"
+log = "0.4.8"
 dynasm = "0.5.2"
 dynasmrt = "0.5.2"
 parser = { path = "../parser" }
+serde = { version = "1.0.104", features = ["derive"] }
