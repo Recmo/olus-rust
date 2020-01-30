@@ -22,3 +22,7 @@ Future:
 * Calling convention involving non-general purpose registers:
   * XMM registers
   * Flags
+
+Prover core:
+* Prover core (Metamask ish)
+  <https://arxiv.org/pdf/1910.10703.pdf>

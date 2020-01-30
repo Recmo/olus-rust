@@ -36,7 +36,7 @@ pub fn sys_exit(ops: &mut Assembler) {
 
 /// Emit the print builtin
 /// `print str ret`
-pub fn sys_print(ops: &mut dynasmrt::x64::Assembler) {
+pub fn sys_print(ops: &mut Assembler) {
     dynasm!(ops
         // Back up ret to r15
         ; mov r15, r2
@@ -54,7 +54,7 @@ pub fn sys_print(ops: &mut dynasmrt::x64::Assembler) {
 
 /// Emit the add builtin
 /// `add a b ret`
-pub fn add(ops: &mut dynasmrt::x64::Assembler) {
+pub fn add(ops: &mut Assembler) {
     dynasm!(ops
         ; add r1, r2
         ; mov r0, r3
@@ -64,7 +64,7 @@ pub fn add(ops: &mut dynasmrt::x64::Assembler) {
 
 /// Emit the add builtin
 /// `sub a b ret`
-pub fn sub(ops: &mut dynasmrt::x64::Assembler) {
+pub fn sub(ops: &mut Assembler) {
     dynasm!(ops
         ; sub r1, r2
         ; mov r0, r3
@@ -74,7 +74,7 @@ pub fn sub(ops: &mut dynasmrt::x64::Assembler) {
 
 /// Emit the mul builtin
 /// `mul a b ret`
-pub fn mul(ops: &mut dynasmrt::x64::Assembler) {
+pub fn mul(ops: &mut Assembler) {
     dynasm!(ops
         ; mulx r0, r1, r1 // r0:r1 = r1 * r2
         ; mov r0, r3
@@ -84,7 +84,7 @@ pub fn mul(ops: &mut dynasmrt::x64::Assembler) {
 
 /// Emit the isZero builtin
 /// `isZero n true false`
-pub fn is_zero(ops: &mut dynasmrt::x64::Assembler) {
+pub fn is_zero(ops: &mut Assembler) {
     dynasm!(ops
         ; test r1, r1
         ; mov r0, r2

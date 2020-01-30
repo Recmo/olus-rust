@@ -1,0 +1,8 @@
+println line ret ↦
+    print line (↦)
+    print “
+” ret
+
+main ↦
+    println “Hello, World!” (↦)
+    exit 0

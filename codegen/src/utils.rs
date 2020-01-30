@@ -25,6 +25,7 @@ pub fn assemble_read4(code: &mut Assembler, reg: usize, address: usize) {
 }
 
 pub fn assemble_literal(code: &mut Assembler, reg: usize, literal: u64) {
+    // TODO: XOR for zero?
     if literal <= u32::max_value().into() {
         let literal = literal as i32;
         match reg {
