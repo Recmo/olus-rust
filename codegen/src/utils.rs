@@ -1,7 +1,7 @@
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi};
 
-pub fn assemble_read4(code: &mut Assembler, reg: usize, address: usize) {
+pub(crate) fn assemble_read4(code: &mut Assembler, reg: usize, address: usize) {
     assert!(address <= (u32::max_value() as usize));
     match reg {
         0 => dynasm!(code; mov r0d, DWORD [address as i32]),
@@ -24,7 +24,7 @@ pub fn assemble_read4(code: &mut Assembler, reg: usize, address: usize) {
     }
 }
 
-pub fn assemble_literal(code: &mut Assembler, reg: usize, literal: u64) {
+pub(crate) fn assemble_literal(code: &mut Assembler, reg: usize, literal: u64) {
     // TODO: XOR for zero?
     if literal <= u32::max_value().into() {
         let literal = literal as i32;

@@ -2,12 +2,12 @@ use crate::{macho::RAM_START, utils::assemble_read4};
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi};
 
-pub trait Allocator {
+pub(crate) trait Allocator {
     fn alloc(code: &mut Assembler, reg: usize, size: usize);
     fn drop(code: &mut Assembler, reg: usize);
 }
 
-pub struct Bump();
+pub(crate) struct Bump();
 
 impl Allocator for Bump {
     /// Allocate `size` bytes and store the pointer in register `reg`

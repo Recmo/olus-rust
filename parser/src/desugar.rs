@@ -1,7 +1,7 @@
 use crate::ast::*;
 use std::collections::HashMap;
 
-pub trait Visitor {
+pub(crate) trait Visitor {
     fn visit_binder(&mut self, _: &mut Option<usize>, _: &mut String) {}
 
     fn visit_expression(&mut self, _: &mut Expression) {}
@@ -19,7 +19,7 @@ pub trait Visitor {
     fn visit_block(&mut self, _: &mut Vec<Statement>) {}
 }
 
-pub trait Host {
+pub(crate) trait Host {
     fn visit<V: Visitor>(&mut self, visitor: &mut V);
 }
 
@@ -87,7 +87,7 @@ impl Host for Statement {
 }
 
 /// Bind References to their Binders and flattens Blocks.
-pub fn bind(block: &mut Statement) -> usize {
+pub(crate) fn bind(block: &mut Statement) -> usize {
     // Number binders starting from zero
     struct NumberBinders(usize);
     impl Visitor for NumberBinders {
@@ -106,7 +106,7 @@ pub fn bind(block: &mut Statement) -> usize {
         fn visit_binder(&mut self, n: &mut Option<usize>, s: &mut String) {
             // TODO: Scoping.
             // TODO: Forward looking.
-            self.0.insert((*s).to_string(), n.unwrap());
+            let _ = self.0.insert((*s).to_string(), n.unwrap());
         }
 
         fn visit_reference(&mut self, n: &mut Option<usize>, s: &mut String) {
@@ -165,7 +165,7 @@ fn merge(target: &mut Vec<Expression>, call: Vec<Expression>) {
 }
 
 /// Fill empty calls with following statement
-pub fn glucase(statements: &[Statement]) -> Vec<Statement> {
+pub(crate) fn glucase(statements: &[Statement]) -> Vec<Statement> {
     let mut result = Vec::new();
     let mut closure: Option<(Vec<Binder>, Vec<Expression>)> = None;
     for statement in statements {
@@ -193,14 +193,14 @@ pub fn glucase(statements: &[Statement]) -> Vec<Statement> {
     result
 }
 
-pub fn glucase_wrap(block: &mut Statement) {
+pub(crate) fn glucase_wrap(block: &mut Statement) {
     if let Statement::Block(statements) = block {
         *statements = glucase(&statements);
     }
 }
 
 /// Converts all Fructose to Closures.
-pub fn fructase(block: &mut Statement, binder_id: &mut usize) {
+pub(crate) fn fructase(block: &mut Statement, binder_id: &mut usize) {
     struct State(usize, Vec<Statement>);
     impl Visitor for State {
         fn leave_expression(&mut self, e: &mut Expression) {
@@ -231,7 +231,7 @@ pub fn fructase(block: &mut Statement, binder_id: &mut usize) {
     }
 }
 
-pub fn galac_vec(exprs: &mut Vec<Expression>, binder_id: &mut usize) {
+pub(crate) fn galac_vec(exprs: &mut Vec<Expression>, binder_id: &mut usize) {
     // Find first Galactose or return
     if let Some(index) = exprs.iter().position(|e| {
         match e {
@@ -267,7 +267,7 @@ pub fn galac_vec(exprs: &mut Vec<Expression>, binder_id: &mut usize) {
     }
 }
 
-pub fn galactase(block: &mut Statement, binder_id: &mut usize) {
+pub(crate) fn galactase(block: &mut Statement, binder_id: &mut usize) {
     struct State(usize);
     impl Visitor for State {
         fn visit_closure(&mut self, _: &mut Vec<Binder>, exprs: &mut Vec<Expression>) {
@@ -287,7 +287,7 @@ pub fn galactase(block: &mut Statement, binder_id: &mut usize) {
     *binder_id = state.0;
 }
 
-pub fn desugar(block: &mut Statement) {
+pub(crate) fn desugar(block: &mut Statement) {
     let mut binder_count = bind(block);
     glucase_wrap(block);
     galactase(block, &mut binder_count);

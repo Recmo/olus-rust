@@ -8,7 +8,7 @@ use dynasmrt::{x64::Assembler, DynasmApi};
 // TODO: These intrinsics don't need a closure to be passed. They can have a
 // more optimized calling convention.
 
-pub fn intrinsic(ops: &mut Assembler, name: &str) {
+pub(crate) fn intrinsic(ops: &mut Assembler, name: &str) {
     match name {
         "exit" => sys_exit(ops),
         "print" => sys_print(ops),
@@ -25,7 +25,7 @@ pub fn intrinsic(ops: &mut Assembler, name: &str) {
 
 /// Emit the exit builtin
 /// `exit code`
-pub fn sys_exit(ops: &mut Assembler) {
+fn sys_exit(ops: &mut Assembler) {
     dynasm!(ops
         // sys_exit(code)
         ; mov r0d, WORD 0x0200_0001
@@ -36,7 +36,7 @@ pub fn sys_exit(ops: &mut Assembler) {
 
 /// Emit the print builtin
 /// `print str ret`
-pub fn sys_print(ops: &mut Assembler) {
+fn sys_print(ops: &mut Assembler) {
     dynasm!(ops
         // Back up ret to r15
         ; mov r15, r2
@@ -54,7 +54,7 @@ pub fn sys_print(ops: &mut Assembler) {
 
 /// Emit the add builtin
 /// `add a b ret`
-pub fn add(ops: &mut Assembler) {
+fn add(ops: &mut Assembler) {
     dynasm!(ops
         ; add r1, r2
         ; mov r0, r3
@@ -64,7 +64,7 @@ pub fn add(ops: &mut Assembler) {
 
 /// Emit the add builtin
 /// `sub a b ret`
-pub fn sub(ops: &mut Assembler) {
+fn sub(ops: &mut Assembler) {
     dynasm!(ops
         ; sub r1, r2
         ; mov r0, r3
@@ -74,7 +74,7 @@ pub fn sub(ops: &mut Assembler) {
 
 /// Emit the mul builtin
 /// `mul a b ret`
-pub fn mul(ops: &mut Assembler) {
+fn mul(ops: &mut Assembler) {
     dynasm!(ops
         ; mulx r0, r1, r1 // r0:r1 = r1 * r2
         ; mov r0, r3
@@ -84,7 +84,7 @@ pub fn mul(ops: &mut Assembler) {
 
 /// Emit the isZero builtin
 /// `isZero n true false`
-pub fn is_zero(ops: &mut Assembler) {
+fn is_zero(ops: &mut Assembler) {
     dynasm!(ops
         ; test r1, r1
         ; mov r0, r2

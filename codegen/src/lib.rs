@@ -41,15 +41,8 @@ mod macho;
 mod rom;
 mod utils;
 
-use crate::{
-    intrinsics::intrinsic,
-    macho::{Assembly, CODE_START, ROM_START},
-    utils::assemble_literal,
-};
-use dynasm::dynasm;
-use dynasmrt::{x64::Assembler, DynasmApi};
-use parser::mir::{Declaration, Expression, Module};
-use serde::{Deserialize, Serialize};
+use crate::{intrinsics::intrinsic, macho::Assembly};
+use parser::mir::Module;
 use std::{error::Error, path::PathBuf};
 
 // For Dynasm syntax see

@@ -3,7 +3,7 @@
 use crate::{ast, tokens};
 use nom::*;
 
-pub fn is_reserved_keyword(s: &str) -> bool {
+pub(crate) fn is_reserved_keyword(s: &str) -> bool {
     match s {
         "“" => true,
         "”" => true,
@@ -120,7 +120,7 @@ named!(pub block<&str, ast::Statement>, do_parse!(
 
 // Returns a single block containing the contents.
 // TODO: Error handling.
-pub fn parse_olus(input: &str) -> ast::Statement {
+pub(crate) fn parse_olus(input: &str) -> ast::Statement {
     match block(input) {
         Ok(("", result)) => result,
         _ => panic!(),

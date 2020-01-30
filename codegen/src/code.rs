@@ -11,11 +11,12 @@ use parser::mir::{Declaration, Expression, Module};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
-pub struct Layout {
-    pub declarations: Vec<usize>,
-    pub imports:      Vec<usize>,
+pub(crate) struct Layout {
+    pub(crate) declarations: Vec<usize>,
+    pub(crate) imports:      Vec<usize>,
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
 struct MachineState {
     registers: [Option<Expression>; 16],
     // TODO: Flags
@@ -42,6 +43,7 @@ impl MachineState {
 }
 
 // Where to find a particular expression
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
 enum Source {
     Constant(u64),
     Register(usize),
@@ -190,6 +192,10 @@ fn code_transition(
                     //
                     Bump::alloc(code, i, (1 + cdecl.closure.len()) * 8);
                 } else {
+                    // TODO: Read from closure
+                    dbg!(current);
+                    dbg!(target);
+                    dbg!(expr);
                     panic!("Can't handle symbol");
                 }
             } else {
@@ -220,7 +226,7 @@ fn assemble_decl(
     // * fall-through.
 }
 
-pub fn compile(module: &Module, rom_layout: &rom::Layout) -> (Vec<u8>, Layout) {
+pub(crate) fn compile(module: &Module, rom_layout: &rom::Layout) -> (Vec<u8>, Layout) {
     let mut layout = Layout::default();
     let mut code = dynasmrt::x64::Assembler::new().unwrap();
 

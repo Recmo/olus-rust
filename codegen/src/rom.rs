@@ -5,13 +5,13 @@ use parser::mir::Module;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
-pub struct Layout {
-    pub closures: Vec<usize>,
-    pub imports:  Vec<usize>,
-    pub strings:  Vec<usize>,
+pub(crate) struct Layout {
+    pub(crate) closures: Vec<usize>,
+    pub(crate) imports:  Vec<usize>,
+    pub(crate) strings:  Vec<usize>,
 }
 
-pub fn layout(module: &Module) -> Layout {
+pub(crate) fn layout(module: &Module) -> Layout {
     let mut result = Layout::default();
     let mut offset = ROM_START;
     for _decl in &module.declarations {
@@ -29,7 +29,7 @@ pub fn layout(module: &Module) -> Layout {
     result
 }
 
-pub fn compile(module: &Module, code_layout: &code::Layout) -> Vec<u8> {
+pub(crate) fn compile(module: &Module, code_layout: &code::Layout) -> Vec<u8> {
     assert_eq!(module.declarations.len(), code_layout.declarations.len());
     assert_eq!(module.imports.len(), code_layout.imports.len());
     let mut rom = dynasmrt::x64::Assembler::new().unwrap();

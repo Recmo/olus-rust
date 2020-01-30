@@ -3,23 +3,23 @@ use dynasmrt::DynasmApi;
 use std::{error::Error, fs, fs::File, io::Write, os::unix::fs::PermissionsExt, path::PathBuf};
 
 // TODO: These are not constant
-pub const CODE_START: usize = 0x11f8;
-pub const ROM_START: usize = 0x2000;
-pub const RAM_START: usize = 0x3000;
+pub(crate) const CODE_START: usize = 0x11f8;
+pub(crate) const ROM_START: usize = 0x2000;
+pub(crate) const RAM_START: usize = 0x3000;
 
 const PAGE: usize = 4096;
 const RAM_PAGES: usize = 1024; // 4MB RAM
 
 /// The `code`, `rom` and `ram` segments will be extended to 4k page boundaries,
 /// concatenated and loaded at address 0x1000. Ram will be extended to 4MB.
-pub struct Assembly {
-    pub code: Vec<u8>,
-    pub rom:  Vec<u8>,
-    pub ram:  Vec<u8>,
+pub(crate) struct Assembly {
+    pub(crate) code: Vec<u8>,
+    pub(crate) rom:  Vec<u8>,
+    pub(crate) ram:  Vec<u8>,
 }
 
 impl Assembly {
-    pub fn save(&self, destination: &PathBuf) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn save(&self, destination: &PathBuf) -> Result<(), Box<dyn Error>> {
         let exe = self.to_macho();
         {
             let mut file = File::create(destination)?;
@@ -39,7 +39,7 @@ impl Assembly {
     // See <https://pewpewthespells.com/re/Mach-O_File_Format.pdf>
     // See <https://github.com/apple/darwin-xnu/blob/master/EXTERNAL_HEADERS/mach-o/loader.h>
     // See <https://github.com/apple/darwin-xnu/blob/master/bsd/kern/mach_loader.c>
-    pub fn to_macho(&self) -> Vec<u8> {
+    pub(crate) fn to_macho(&self) -> Vec<u8> {
         let num_segments = 4;
         let header_size: usize = 32 + 72 * num_segments + 184;
         let code_pages = (self.code.len() + header_size + PAGE - 1) / PAGE;
