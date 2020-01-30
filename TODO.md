@@ -26,3 +26,8 @@ Future:
 Prover core:
 * Prover core (Metamask ish)
   <https://arxiv.org/pdf/1910.10703.pdf>
+
+
+Reading list:
+* <https://arxiv.org/pdf/1910.10703.pdf>
+* <https://bootstrappable.org/>

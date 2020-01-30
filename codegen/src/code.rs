@@ -126,16 +126,17 @@ fn get_literal(module: &Module, rom_layout: &rom::Layout, expr: &Expression) -> 
                 // Not a name (must be argument or closure content)
                 return None;
             }
-            let decl = module
+            let (j, decl) = module
                 .declarations
                 .iter()
-                .find(|decl| decl.procedure[0] == *i)
+                .enumerate()
+                .find(|(_, decl)| decl.procedure[0] == *i)
                 .unwrap();
             if !decl.closure.is_empty() {
                 // Symbol requires a closure
                 return None;
             }
-            rom_layout.closures[*i] as u64
+            rom_layout.closures[j] as u64
         }
         Expression::Import(i) => rom_layout.imports[*i] as u64,
         Expression::Literal(i) => rom_layout.strings[*i] as u64,
