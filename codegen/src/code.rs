@@ -3,7 +3,7 @@ use crate::{
     intrinsic,
     macho::CODE_START,
     rom,
-    utils::{assemble_literal, assemble_mov},
+    utils::{assemble_literal, assemble_mov, assemble_read},
 };
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi};
@@ -132,15 +132,25 @@ fn code_transition(ctx: &mut Context, target: &MachineState) {
     // * Copy registers
 
     dbg!(target);
-    // Iterate target left to right
-    for (i, expr) in target.registers.iter().enumerate() {
+    // Iterate target right to left
+    // TODO: Strategic ordering
+    for (i, expr) in target.registers.iter().enumerate().rev() {
         dbg!(&ctx.state.registers, expr, i);
         if let Some(expr) = expr {
             match ctx.find(expr) {
                 Source::Constant(n) => assemble_literal(ctx.code, i, n),
                 Source::Register(j) => assemble_mov(ctx.code, i, j),
+                Source::Closure(j) => assemble_read(ctx.code, i, j),
+                Source::Alloc(j) => {
+                    // TODO:
+                    // * Allocate closure
+                    // * Recursively? create contents
+                    // * Write contents
+                    // TODO: Allocate all closures in one bump
+                    // TODO: Are recursive closures avoidable?
+                    panic!("Don't know how to handle alloc {:?}", j)
+                }
                 Source::None => panic!("Don't know how to create {:?}", expr),
-                otherwise => panic!("Don't know how to handle {:?}", otherwise),
             };
             ctx.state.registers[i] = Some(expr.clone());
         }

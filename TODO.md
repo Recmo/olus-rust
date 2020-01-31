@@ -4,7 +4,7 @@ Phase 0:
 * Hardcoded closure size, function in header
 * Closure & 64 bit register type.
 * `add` `sub` `mul` `iszero` builtins
-* Calling conventions: closure in r0, args in r1..r15, fail when >15 args. (DONE)
+* Calling conventions: closure in r0, args in r1..r15, fail when >15 args.
 * Deduplicate literals (DONE)
 
 Phase 1:

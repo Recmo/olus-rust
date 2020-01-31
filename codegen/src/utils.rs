@@ -113,3 +113,26 @@ pub(crate) fn assemble_mov(code: &mut Assembler, reg: usize, src: usize) {
         _ => panic!("Unknown register"),
     }
 }
+
+pub(crate) fn assemble_read(code: &mut Assembler, reg: usize, index: usize) {
+    let offset = (8 + 8 * index) as i32;
+    match reg {
+        0 => dynasm!(code; mov r0, QWORD [r0 + offset]),
+        1 => dynasm!(code; mov r1, QWORD [r0 + offset]),
+        2 => dynasm!(code; mov r2, QWORD [r0 + offset]),
+        3 => dynasm!(code; mov r3, QWORD [r0 + offset]),
+        4 => dynasm!(code; mov r4, QWORD [r0 + offset]),
+        5 => dynasm!(code; mov r5, QWORD [r0 + offset]),
+        6 => dynasm!(code; mov r6, QWORD [r0 + offset]),
+        7 => dynasm!(code; mov r7, QWORD [r0 + offset]),
+        8 => dynasm!(code; mov r8, QWORD [r0 + offset]),
+        9 => dynasm!(code; mov r9, QWORD [r0 + offset]),
+        10 => dynasm!(code; mov r10, QWORD [r0 + offset]),
+        11 => dynasm!(code; mov r11, QWORD [r0 + offset]),
+        12 => dynasm!(code; mov r12, QWORD [r0 + offset]),
+        13 => dynasm!(code; mov r13, QWORD [r0 + offset]),
+        14 => dynasm!(code; mov r14, QWORD [r0 + offset]),
+        15 => dynasm!(code; mov r15, QWORD [r0 + offset]),
+        _ => panic!("Unknown register"),
+    }
+}
