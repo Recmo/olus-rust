@@ -70,3 +70,46 @@ pub(crate) fn assemble_literal(code: &mut Assembler, reg: usize, literal: u64) {
         }
     }
 }
+
+pub(crate) fn assemble_mov(code: &mut Assembler, reg: usize, src: usize) {
+    if reg == src {
+        return;
+    }
+    // TODO: Real implementation
+    match src {
+        0 => dynasm!(code; mov r15, r0),
+        1 => dynasm!(code; mov r15, r1),
+        2 => dynasm!(code; mov r15, r2),
+        3 => dynasm!(code; mov r15, r3),
+        4 => dynasm!(code; mov r15, r4),
+        5 => dynasm!(code; mov r15, r5),
+        6 => dynasm!(code; mov r15, r6),
+        7 => dynasm!(code; mov r15, r7),
+        8 => dynasm!(code; mov r15, r8),
+        9 => dynasm!(code; mov r15, r9),
+        10 => dynasm!(code; mov r15, r10),
+        11 => dynasm!(code; mov r15, r11),
+        12 => dynasm!(code; mov r15, r12),
+        13 => dynasm!(code; mov r15, r13),
+        14 => dynasm!(code; mov r15, r14),
+        _ => panic!("Unknown register"),
+    }
+    match reg {
+        0 => dynasm!(code; mov r0, r15),
+        1 => dynasm!(code; mov r1, r15),
+        2 => dynasm!(code; mov r2, r15),
+        3 => dynasm!(code; mov r3, r15),
+        4 => dynasm!(code; mov r4, r15),
+        5 => dynasm!(code; mov r5, r15),
+        6 => dynasm!(code; mov r6, r15),
+        7 => dynasm!(code; mov r7, r15),
+        8 => dynasm!(code; mov r8, r15),
+        9 => dynasm!(code; mov r9, r15),
+        10 => dynasm!(code; mov r10, r15),
+        11 => dynasm!(code; mov r11, r15),
+        12 => dynasm!(code; mov r12, r15),
+        13 => dynasm!(code; mov r13, r15),
+        14 => dynasm!(code; mov r14, r15),
+        _ => panic!("Unknown register"),
+    }
+}

@@ -3,7 +3,7 @@ use crate::{
     intrinsic,
     macho::CODE_START,
     rom,
-    utils::assemble_literal,
+    utils::{assemble_literal, assemble_mov},
 };
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi};
@@ -71,12 +71,14 @@ impl<'a> Context<'a> {
     fn closure(&self) -> Vec<usize> {
         if let Some(Expression::Symbol(s)) = self.state.registers[0] {
             if let Some((_, decl)) = self.find_decl(s) {
+                // TODO: Make sure this is actually a closure meant for the
+                // current context and not something temporary.
                 decl.closure.clone()
             } else {
-                panic!("r0 symbol is not a closure.")
+                vec![]
             }
         } else {
-            panic!("r0 does not contain symbol.")
+            vec![]
         }
     }
 
@@ -120,44 +122,7 @@ impl<'a> Context<'a> {
     }
 }
 
-fn get_literal(module: &Module, rom_layout: &rom::Layout, expr: &Expression) -> Option<u64> {
-    Some(match expr {
-        Expression::Number(i) => module.numbers[*i],
-        Expression::Symbol(i) => {
-            if !module.names[*i] {
-                // Not a name (must be argument or closure content)
-                return None;
-            }
-            let (j, decl) = module
-                .declarations
-                .iter()
-                .enumerate()
-                .find(|(_, decl)| decl.procedure[0] == *i)
-                .unwrap();
-            if !decl.closure.is_empty() {
-                // Symbol requires a closure
-                return None;
-            }
-            rom_layout.closures[j] as u64
-        }
-        Expression::Import(i) => rom_layout.imports[*i] as u64,
-        Expression::Literal(i) => rom_layout.strings[*i] as u64,
-    })
-}
-
-fn code_transition(ctx: &mut Context, current: &MachineState, target: &MachineState) {
-    let closure = if let Some(Expression::Symbol(i)) = current.registers[0] {
-        let decl = ctx
-            .module
-            .declarations
-            .iter()
-            .find(|decl| decl.procedure[0] == i)
-            .expect("r0 should be a closure if anything.");
-        decl.closure.to_vec()
-    } else {
-        vec![]
-    };
-
+fn code_transition(ctx: &mut Context, target: &MachineState) {
     // Rough order:
     // * Drop registers? (depends on type)
     // * Shuffle registers? (Can also have duplicates and drops)
@@ -166,54 +131,27 @@ fn code_transition(ctx: &mut Context, current: &MachineState, target: &MachineSt
     // * Load all the literals
     // * Copy registers
 
+    dbg!(target);
     // Iterate target left to right
     for (i, expr) in target.registers.iter().enumerate() {
+        dbg!(&ctx.state.registers, expr, i);
         if let Some(expr) = expr {
-            println!("r{} = {:?}", i, expr);
-            if let Some(literal) = get_literal(ctx.module, ctx.rom, expr) {
-                println!("{:?} is literal {:?}", expr, literal);
-                assemble_literal(ctx.code, i, literal);
-            } else if let Expression::Symbol(s) = expr {
-                if let Some(reg) = current
-                    .registers
-                    .iter()
-                    .position(|p| *p == Some(expr.clone()))
-                {
-                    println!("{:?} is arg {:?}", expr, reg);
-                } else if let Some(var) = closure.iter().position(|p| *p == *s) {
-                    println!("{:?} is closure param {:?}", expr, var);
-                } else if ctx.module.names[*s] {
-                    let cdecl = ctx
-                        .module
-                        .declarations
-                        .iter()
-                        .find(|decl| decl.procedure[0] == *s)
-                        .unwrap();
-                    assert!(!cdecl.closure.is_empty());
-                    println!(
-                        "{:?} is a closure of {:?}{:?}",
-                        expr, cdecl.procedure[0], cdecl.closure
-                    );
-                    // Allocate closure
-                    Bump::alloc(ctx.code, i, (1 + cdecl.closure.len()) * 8);
-                } else {
-                    dbg!(current);
-                    dbg!(target);
-                    dbg!(expr);
-                    panic!("Can't handle symbol");
-                }
-            } else {
-                panic!("Can't handle expression");
-            }
+            match ctx.find(expr) {
+                Source::Constant(n) => assemble_literal(ctx.code, i, n),
+                Source::Register(j) => assemble_mov(ctx.code, i, j),
+                Source::None => panic!("Don't know how to create {:?}", expr),
+                otherwise => panic!("Don't know how to handle {:?}", otherwise),
+            };
+            ctx.state.registers[i] = Some(expr.clone());
         }
     }
 }
 
 fn assemble_decl(ctx: &mut Context, decl: &Declaration) {
     // Transition into the correct machine state
-    let current = MachineState::from_symbols(&decl.procedure);
+    ctx.state = MachineState::from_symbols(&decl.procedure);
     let target = MachineState::from_expressions(&decl.call);
-    code_transition(ctx, &current, &target);
+    code_transition(ctx, &target);
 
     // Call the closure
     dynasm!(ctx.code
@@ -245,13 +183,12 @@ pub(crate) fn compile(module: &Module, rom: &rom::Layout) -> (Vec<u8>, Layout) {
         ; mov r0d, DWORD (rom.closures[main_index]) as i32
         ; jmp QWORD [r0]
     );
-    let state = MachineState::from_symbols(&main.procedure);
     {
         let mut ctx = Context {
             module,
             rom,
             code: &mut code,
-            state,
+            state: MachineState::default(),
         };
 
         // Declarations
