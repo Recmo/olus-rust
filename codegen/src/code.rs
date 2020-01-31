@@ -52,73 +52,73 @@ enum Source {
     None,
 }
 
-// struct Context<'a> {
-//     module: &'a Module,
-//     layout: &'a MemoryLayout,
-//     code:   &'a mut Assembler,
-//     state:  MachineState,
-// }
+struct Context<'a> {
+    module: &'a Module,
+    rom:    &'a rom::Layout,
+    code:   &'a mut Assembler,
+    state:  MachineState,
+}
 
-// impl<'a> Context<'a> {
-//     fn find_decl(&self, symbol: usize) -> Option<(usize, &'a Declaration)> {
-//         self.module
-//             .declarations
-//             .iter()
-//             .enumerate()
-//             .find(|decl| decl.1.procedure[0] == symbol)
-//     }
+impl<'a> Context<'a> {
+    fn find_decl(&self, symbol: usize) -> Option<(usize, &'a Declaration)> {
+        self.module
+            .declarations
+            .iter()
+            .enumerate()
+            .find(|decl| decl.1.procedure[0] == symbol)
+    }
 
-//     fn closure(&self) -> Vec<usize> {
-//         if let Some(Expression::Symbol(s)) = self.state.registers[0] {
-//             if let Some((_, decl)) = self.find_decl(s) {
-//                 decl.closure.clone()
-//             } else {
-//                 panic!("r0 symbol is not a closure.")
-//             }
-//         } else {
-//             panic!("r0 does not contain symbol.")
-//         }
-//     }
+    fn closure(&self) -> Vec<usize> {
+        if let Some(Expression::Symbol(s)) = self.state.registers[0] {
+            if let Some((_, decl)) = self.find_decl(s) {
+                decl.closure.clone()
+            } else {
+                panic!("r0 symbol is not a closure.")
+            }
+        } else {
+            panic!("r0 does not contain symbol.")
+        }
+    }
 
-//     pub fn find(&self, expr: &Expression) -> Source {
-//         use Expression::*;
-//         use Source::*;
-//         match expr {
-//             Number(i) => Constant(self.module.numbers[*i]),
-//             Literal(i) => Constant(self.layout.strings[*i] as u64),
-//             Import(i) => Constant(self.layout.imports[*i] as u64),
-//             Symbol(i) => {
-//                 // Check registers
-//                 if let Some(i) = self
-//                     .state
-//                     .registers
-//                     .iter()
-//                     .position(|e| e == &Some(expr.clone()))
-//                 {
-//                     return Register(i);
-//                 }
+    pub fn find(&self, expr: &Expression) -> Source {
+        use Expression::*;
+        use Source::*;
+        match expr {
+            Number(i) => Constant(self.module.numbers[*i]),
+            Literal(i) => Constant(self.rom.strings[*i] as u64),
+            Import(i) => Constant(self.rom.imports[*i] as u64),
+            Symbol(i) => {
+                // Check registers
+                if let Some(i) = self
+                    .state
+                    .registers
+                    .iter()
+                    .position(|e| e == &Some(expr.clone()))
+                {
+                    return Register(i);
+                }
 
-//                 // Check current closure
-//                 if let Some(i) = self.closure().iter().position(|s| s == i) {
-//                     return Closure(i);
-//                 }
+                // Check current closure
+                if let Some(i) = self.closure().iter().position(|s| s == i) {
+                    return Closure(i);
+                }
 
-//                 // New closure
-//                 if let Some((i, decl)) = self.find_decl(*i) {
-//                     if decl.closure.is_empty() {
-//                         // Empty closures are constant allocated
-//                         Constant(self.layout.closures[i] as u64)
-//                     } else {
-//                         // We need to allocate a closure
-//                         Alloc(i)
-//                     }
-//                 } else {
-//                     None
-//                 }
-//             }
-//         }
-//     }
-// }
+                // New closure
+                if let Some((i, decl)) = self.find_decl(*i) {
+                    if decl.closure.is_empty() {
+                        // Empty closures are constant allocated
+                        Constant(self.rom.closures[i] as u64)
+                    } else {
+                        // We need to allocate a closure
+                        Alloc(i)
+                    }
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
 
 fn get_literal(module: &Module, rom_layout: &rom::Layout, expr: &Expression) -> Option<u64> {
     Some(match expr {
@@ -145,13 +145,19 @@ fn get_literal(module: &Module, rom_layout: &rom::Layout, expr: &Expression) -> 
     })
 }
 
-fn code_transition(
-    module: &Module,
-    rom_layout: &rom::Layout,
-    code: &mut Assembler,
-    current: &MachineState,
-    target: &MachineState,
-) {
+fn code_transition(ctx: &mut Context, current: &MachineState, target: &MachineState) {
+    let closure = if let Some(Expression::Symbol(i)) = current.registers[0] {
+        let decl = ctx
+            .module
+            .declarations
+            .iter()
+            .find(|decl| decl.procedure[0] == i)
+            .expect("r0 should be a closure if anything.");
+        decl.closure.to_vec()
+    } else {
+        vec![]
+    };
+
     // Rough order:
     // * Drop registers? (depends on type)
     // * Shuffle registers? (Can also have duplicates and drops)
@@ -159,12 +165,14 @@ fn code_transition(
     // * Load closure values
     // * Load all the literals
     // * Copy registers
+
+    // Iterate target left to right
     for (i, expr) in target.registers.iter().enumerate() {
         if let Some(expr) = expr {
             println!("r{} = {:?}", i, expr);
-            if let Some(literal) = get_literal(module, rom_layout, expr) {
+            if let Some(literal) = get_literal(ctx.module, ctx.rom, expr) {
                 println!("{:?} is literal {:?}", expr, literal);
-                assemble_literal(code, i, literal);
+                assemble_literal(ctx.code, i, literal);
             } else if let Expression::Symbol(s) = expr {
                 if let Some(reg) = current
                     .registers
@@ -172,14 +180,11 @@ fn code_transition(
                     .position(|p| *p == Some(expr.clone()))
                 {
                     println!("{:?} is arg {:?}", expr, reg);
-                } else if let Some(var) = current
-                    .registers
-                    .iter()
-                    .position(|p| *p == Some(expr.clone()))
-                {
+                } else if let Some(var) = closure.iter().position(|p| *p == *s) {
                     println!("{:?} is closure param {:?}", expr, var);
-                } else if module.names[*s] {
-                    let cdecl = module
+                } else if ctx.module.names[*s] {
+                    let cdecl = ctx
+                        .module
                         .declarations
                         .iter()
                         .find(|decl| decl.procedure[0] == *s)
@@ -189,10 +194,9 @@ fn code_transition(
                         "{:?} is a closure of {:?}{:?}",
                         expr, cdecl.procedure[0], cdecl.closure
                     );
-                    //
-                    Bump::alloc(code, i, (1 + cdecl.closure.len()) * 8);
+                    // Allocate closure
+                    Bump::alloc(ctx.code, i, (1 + cdecl.closure.len()) * 8);
                 } else {
-                    // TODO: Read from closure
                     dbg!(current);
                     dbg!(target);
                     dbg!(expr);
@@ -205,19 +209,14 @@ fn code_transition(
     }
 }
 
-fn assemble_decl(
-    module: &Module,
-    rom_layout: &rom::Layout,
-    code: &mut Assembler,
-    decl: &Declaration,
-) {
+fn assemble_decl(ctx: &mut Context, decl: &Declaration) {
     // Transition into the correct machine state
     let current = MachineState::from_symbols(&decl.procedure);
     let target = MachineState::from_expressions(&decl.call);
-    code_transition(module, rom_layout, code, &current, &target);
+    code_transition(ctx, &current, &target);
 
     // Call the closure
-    dynasm!(code
+    dynasm!(ctx.code
         ; jmp QWORD [r0]
     );
     // TODO: Support
@@ -226,15 +225,15 @@ fn assemble_decl(
     // * fall-through.
 }
 
-pub(crate) fn compile(module: &Module, rom_layout: &rom::Layout) -> (Vec<u8>, Layout) {
+pub(crate) fn compile(module: &Module, rom: &rom::Layout) -> (Vec<u8>, Layout) {
     let mut layout = Layout::default();
     let mut code = dynasmrt::x64::Assembler::new().unwrap();
-
     let main_index = module
         .symbols
         .iter()
         .position(|s| s == "main")
         .expect("No main found.");
+    let main = &module.declarations[main_index];
 
     dynasm!(code
         // Prelude, write rsp to RAM[END-8]. End of ram is initialized with with
@@ -243,19 +242,29 @@ pub(crate) fn compile(module: &Module, rom_layout: &rom::Layout) -> (Vec<u8>, La
         ; mov QWORD[0x0040_1ff8], rsp
 
         // Jump to closure at rom zero
-        ; mov r0d, DWORD (rom_layout.closures[main_index]) as i32
+        ; mov r0d, DWORD (rom.closures[main_index]) as i32
         ; jmp QWORD [r0]
     );
-    // Declarations
-    for decl in &module.declarations {
-        layout.declarations.push(CODE_START + code.offset().0);
-        assemble_decl(module, rom_layout, &mut code, decl);
-    }
-    // Intrinsic functions
-    for import in &module.imports {
-        layout.imports.push(CODE_START + code.offset().0);
-        intrinsic(&mut code, import);
-    }
+    let state = MachineState::from_symbols(&main.procedure);
+    {
+        let mut ctx = Context {
+            module,
+            rom,
+            code: &mut code,
+            state,
+        };
+
+        // Declarations
+        for decl in &module.declarations {
+            layout.declarations.push(CODE_START + ctx.code.offset().0);
+            assemble_decl(&mut ctx, decl);
+        }
+        // Intrinsic functions
+        for import in &module.imports {
+            layout.imports.push(CODE_START + ctx.code.offset().0);
+            intrinsic(ctx.code, import);
+        }
+    };
     let code = code.finalize().expect("Finalize after commit.");
     (code.to_vec(), layout)
 }

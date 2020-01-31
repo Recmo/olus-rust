@@ -16,3 +16,5 @@ dynasm = "0.5.2"
 dynasmrt = "0.5.2"
 parser = { path = "../parser" }
 serde = { version = "1.0.104", features = ["derive"] }
+
+# TODO: https://github.com/CensoredUsername/dynasm-rs/issues/45
