@@ -57,9 +57,20 @@ use std::{error::Error, path::PathBuf};
 pub fn codegen(module: &Module, destination: &PathBuf) -> Result<(), Box<dyn Error>> {
     let rom_layout = rom::layout(module);
     dbg!(&rom_layout);
-    let (code, code_layout) = code::compile(module, &rom_layout);
+
+    // First pass with dummy layout
+    let code_layout = code::Layout::dummy(module);
+    let (_, code_layout) = code::compile(module, &rom_layout, &code_layout);
     dbg!(&code_layout);
+
+    // Compile final rom
     let rom = rom::compile(module, &code_layout);
+
+    // Second pass compile
+    let (code, code_layout_final) = code::compile(module, &rom_layout, &code_layout);
+    // Layout should not change between passes
+    assert_eq!(code_layout, code_layout_final);
+
     let ram = vec![];
     let assembly = Assembly { code, rom, ram };
     assembly.save(destination)

@@ -3,7 +3,10 @@ use crate::{
     intrinsic,
     macho::CODE_START,
     rom,
-    utils::{assemble_literal, assemble_mov, assemble_read},
+    utils::{
+        assemble_literal, assemble_mov, assemble_read, assemble_write_const, assemble_write_read,
+        assemble_write_reg,
+    },
 };
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi};
@@ -16,10 +19,30 @@ pub(crate) struct Layout {
     pub(crate) imports:      Vec<usize>,
 }
 
+impl Layout {
+    pub(crate) fn dummy(module: &Module) -> Layout {
+        const DUMMY: usize = usize::max_value();
+        Layout {
+            declarations: vec![DUMMY; module.declarations.len()],
+            imports:      vec![DUMMY; module.imports.len()],
+        }
+    }
+}
+
+// Where to find a particular expression
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
+enum Source {
+    Constant(u64),
+    Register(usize),
+    Closure(usize), // Value from current closure
+    Alloc(usize),   // New closure for decl
+    None,
+}
+
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
 struct MachineState {
     registers: [Option<Expression>; 16],
-    // TODO: Flags
+    // TODO: Flags (carry, parity, adjust, zero, sign, direction, overflow)
 }
 
 impl MachineState {
@@ -42,20 +65,11 @@ impl MachineState {
     }
 }
 
-// Where to find a particular expression
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
-enum Source {
-    Constant(u64),
-    Register(usize),
-    Closure(usize), // Value from current closure
-    Alloc(usize),   // New closure for decl
-    None,
-}
-
 struct Context<'a> {
     module: &'a Module,
     rom:    &'a rom::Layout,
-    code:   &'a mut Assembler,
+    code:   &'a Layout,
+    asm:    &'a mut Assembler,
     state:  MachineState,
 }
 
@@ -122,7 +136,7 @@ impl<'a> Context<'a> {
     }
 }
 
-fn code_transition(ctx: &mut Context, target: &MachineState) {
+fn code_transition(ctx: &mut Context<'_>, target: &MachineState) {
     // Rough order:
     // * Drop registers? (depends on type)
     // * Shuffle registers? (Can also have duplicates and drops)
@@ -131,24 +145,37 @@ fn code_transition(ctx: &mut Context, target: &MachineState) {
     // * Load all the literals
     // * Copy registers
 
-    dbg!(target);
     // Iterate target right to left
     // TODO: Strategic ordering
     for (i, expr) in target.registers.iter().enumerate().rev() {
-        dbg!(&ctx.state.registers, expr, i);
         if let Some(expr) = expr {
             match ctx.find(expr) {
-                Source::Constant(n) => assemble_literal(ctx.code, i, n),
-                Source::Register(j) => assemble_mov(ctx.code, i, j),
-                Source::Closure(j) => assemble_read(ctx.code, i, j),
+                Source::Constant(n) => assemble_literal(ctx.asm, i, n),
+                Source::Register(j) => assemble_mov(ctx.asm, i, j),
+                Source::Closure(j) => assemble_read(ctx.asm, i, j),
                 Source::Alloc(j) => {
-                    // TODO:
-                    // * Allocate closure
-                    // * Recursively? create contents
-                    // * Write contents
-                    // TODO: Allocate all closures in one bump
-                    // TODO: Are recursive closures avoidable?
-                    panic!("Don't know how to handle alloc {:?}", j)
+                    let decl = &ctx.module.declarations[j];
+
+                    // Closure: [<code pointer>, <value>, ...]
+                    let size = 8 * (1 + decl.closure.len());
+
+                    // Allocate space for the closure and put pointer in reg
+                    Bump::alloc(ctx.asm, i, size);
+
+                    // Write code pointer
+                    assemble_write_const(ctx.asm, i, 0, ctx.code.declarations[j] as u64);
+
+                    // Write values
+                    for (j, sym) in decl.closure.iter().enumerate() {
+                        let offset = 8 * (1 + j);
+                        match ctx.find(&Expression::Symbol(*sym)) {
+                            Source::Constant(_) => panic!("Constants don't go into closures."),
+                            Source::Register(k) => assemble_write_reg(ctx.asm, i, offset, k),
+                            Source::Closure(k) => assemble_write_read(ctx.asm, i, offset, k),
+                            Source::Alloc(_) => panic!("Nested closures unsupported!"),
+                            Source::None => panic!("Could not find value for closure."),
+                        }
+                    }
                 }
                 Source::None => panic!("Don't know how to create {:?}", expr),
             };
@@ -164,7 +191,7 @@ fn assemble_decl(ctx: &mut Context, decl: &Declaration) {
     code_transition(ctx, &target);
 
     // Call the closure
-    dynasm!(ctx.code
+    dynasm!(ctx.asm
         ; jmp QWORD [r0]
     );
     // TODO: Support
@@ -173,9 +200,15 @@ fn assemble_decl(ctx: &mut Context, decl: &Declaration) {
     // * fall-through.
 }
 
-pub(crate) fn compile(module: &Module, rom: &rom::Layout) -> (Vec<u8>, Layout) {
+pub(crate) fn compile(module: &Module, rom: &rom::Layout, code: &Layout) -> (Vec<u8>, Layout) {
+    assert_eq!(rom.closures.len(), module.declarations.len());
+    assert_eq!(rom.imports.len(), module.imports.len());
+    assert_eq!(rom.strings.len(), module.strings.len());
+    assert_eq!(code.declarations.len(), module.declarations.len());
+    assert_eq!(code.imports.len(), module.imports.len());
+
     let mut layout = Layout::default();
-    let mut code = dynasmrt::x64::Assembler::new().unwrap();
+    let mut asm = dynasmrt::x64::Assembler::new().unwrap();
     let main_index = module
         .symbols
         .iter()
@@ -183,7 +216,7 @@ pub(crate) fn compile(module: &Module, rom: &rom::Layout) -> (Vec<u8>, Layout) {
         .expect("No main found.");
     let main = &module.declarations[main_index];
 
-    dynasm!(code
+    dynasm!(asm
         // Prelude, write rsp to RAM[END-8]. End of ram is initialized with with
         // the OS provided stack frame.
         // TODO: Replace constant with expression
@@ -197,21 +230,22 @@ pub(crate) fn compile(module: &Module, rom: &rom::Layout) -> (Vec<u8>, Layout) {
         let mut ctx = Context {
             module,
             rom,
-            code: &mut code,
+            code,
+            asm: &mut asm,
             state: MachineState::default(),
         };
 
         // Declarations
         for decl in &module.declarations {
-            layout.declarations.push(CODE_START + ctx.code.offset().0);
+            layout.declarations.push(CODE_START + ctx.asm.offset().0);
             assemble_decl(&mut ctx, decl);
         }
         // Intrinsic functions
         for import in &module.imports {
-            layout.imports.push(CODE_START + ctx.code.offset().0);
-            intrinsic(ctx.code, import);
+            layout.imports.push(CODE_START + ctx.asm.offset().0);
+            intrinsic(ctx.asm, import);
         }
     };
-    let code = code.finalize().expect("Finalize after commit.");
-    (code.to_vec(), layout)
+    let asm = asm.finalize().expect("Finalize after commit.");
+    (asm.to_vec(), layout)
 }

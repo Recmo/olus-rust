@@ -75,43 +75,10 @@ pub(crate) fn assemble_mov(code: &mut Assembler, reg: usize, src: usize) {
     if reg == src {
         return;
     }
-    // TODO: Real implementation
-    match src {
-        0 => dynasm!(code; mov r15, r0),
-        1 => dynasm!(code; mov r15, r1),
-        2 => dynasm!(code; mov r15, r2),
-        3 => dynasm!(code; mov r15, r3),
-        4 => dynasm!(code; mov r15, r4),
-        5 => dynasm!(code; mov r15, r5),
-        6 => dynasm!(code; mov r15, r6),
-        7 => dynasm!(code; mov r15, r7),
-        8 => dynasm!(code; mov r15, r8),
-        9 => dynasm!(code; mov r15, r9),
-        10 => dynasm!(code; mov r15, r10),
-        11 => dynasm!(code; mov r15, r11),
-        12 => dynasm!(code; mov r15, r12),
-        13 => dynasm!(code; mov r15, r13),
-        14 => dynasm!(code; mov r15, r14),
-        _ => panic!("Unknown register"),
-    }
-    match reg {
-        0 => dynasm!(code; mov r0, r15),
-        1 => dynasm!(code; mov r1, r15),
-        2 => dynasm!(code; mov r2, r15),
-        3 => dynasm!(code; mov r3, r15),
-        4 => dynasm!(code; mov r4, r15),
-        5 => dynasm!(code; mov r5, r15),
-        6 => dynasm!(code; mov r6, r15),
-        7 => dynasm!(code; mov r7, r15),
-        8 => dynasm!(code; mov r8, r15),
-        9 => dynasm!(code; mov r9, r15),
-        10 => dynasm!(code; mov r10, r15),
-        11 => dynasm!(code; mov r11, r15),
-        12 => dynasm!(code; mov r12, r15),
-        13 => dynasm!(code; mov r13, r15),
-        14 => dynasm!(code; mov r14, r15),
-        _ => panic!("Unknown register"),
-    }
+    // TODO: Don't clobber r15
+    // TODO: Single instruction
+    assemble_copy_to_r15(code, src);
+    assemble_copy_from_r15(code, reg);
 }
 
 pub(crate) fn assemble_read(code: &mut Assembler, reg: usize, index: usize) {
@@ -133,6 +100,89 @@ pub(crate) fn assemble_read(code: &mut Assembler, reg: usize, index: usize) {
         13 => dynasm!(code; mov r13, QWORD [r0 + offset]),
         14 => dynasm!(code; mov r14, QWORD [r0 + offset]),
         15 => dynasm!(code; mov r15, QWORD [r0 + offset]),
+        _ => panic!("Unknown register"),
+    }
+}
+
+pub(crate) fn assemble_write_const(code: &mut Assembler, reg: usize, offset: usize, value: u64) {
+    // TODO: Don't clobber r15
+    dynasm!(code; mov r15, QWORD value as i64);
+    assemble_write_r15(code, reg, offset);
+}
+
+pub(crate) fn assemble_write_reg(code: &mut Assembler, reg: usize, offset: usize, src: usize) {
+    // TODO: Don't clobber r15
+    assemble_copy_to_r15(code, src);
+    assemble_write_r15(code, reg, offset);
+}
+
+pub(crate) fn assemble_write_read(code: &mut Assembler, reg: usize, offset: usize, index: usize) {
+    // TODO: Don't clobber r15
+    assemble_read(code, 15, index);
+    assemble_write_r15(code, reg, offset);
+}
+
+pub(crate) fn assemble_copy_to_r15(code: &mut Assembler, reg: usize) {
+    match reg {
+        0 => dynasm!(code; mov r15, r0),
+        1 => dynasm!(code; mov r15, r1),
+        2 => dynasm!(code; mov r15, r2),
+        3 => dynasm!(code; mov r15, r3),
+        4 => dynasm!(code; mov r15, r4),
+        5 => dynasm!(code; mov r15, r5),
+        6 => dynasm!(code; mov r15, r6),
+        7 => dynasm!(code; mov r15, r7),
+        8 => dynasm!(code; mov r15, r8),
+        9 => dynasm!(code; mov r15, r9),
+        10 => dynasm!(code; mov r15, r10),
+        11 => dynasm!(code; mov r15, r11),
+        12 => dynasm!(code; mov r15, r12),
+        13 => dynasm!(code; mov r15, r13),
+        14 => dynasm!(code; mov r15, r14),
+        _ => panic!("Unknown register"),
+    }
+}
+
+pub(crate) fn assemble_copy_from_r15(code: &mut Assembler, reg: usize) {
+    match reg {
+        0 => dynasm!(code; mov r0, r15),
+        1 => dynasm!(code; mov r1, r15),
+        2 => dynasm!(code; mov r2, r15),
+        3 => dynasm!(code; mov r3, r15),
+        4 => dynasm!(code; mov r4, r15),
+        5 => dynasm!(code; mov r5, r15),
+        6 => dynasm!(code; mov r6, r15),
+        7 => dynasm!(code; mov r7, r15),
+        8 => dynasm!(code; mov r8, r15),
+        9 => dynasm!(code; mov r9, r15),
+        10 => dynasm!(code; mov r10, r15),
+        11 => dynasm!(code; mov r11, r15),
+        12 => dynasm!(code; mov r12, r15),
+        13 => dynasm!(code; mov r13, r15),
+        14 => dynasm!(code; mov r14, r15),
+        _ => panic!("Unknown register"),
+    }
+}
+
+pub(crate) fn assemble_write_r15(code: &mut Assembler, reg: usize, offset: usize) {
+    let offset = offset as i32;
+    match reg {
+        0 => dynasm!(code; mov QWORD [r0 + offset], r15),
+        1 => dynasm!(code; mov QWORD [r1 + offset], r15),
+        2 => dynasm!(code; mov QWORD [r2 + offset], r15),
+        3 => dynasm!(code; mov QWORD [r3 + offset], r15),
+        4 => dynasm!(code; mov QWORD [r4 + offset], r15),
+        5 => dynasm!(code; mov QWORD [r5 + offset], r15),
+        6 => dynasm!(code; mov QWORD [r6 + offset], r15),
+        7 => dynasm!(code; mov QWORD [r7 + offset], r15),
+        8 => dynasm!(code; mov QWORD [r8 + offset], r15),
+        9 => dynasm!(code; mov QWORD [r9 + offset], r15),
+        10 => dynasm!(code; mov QWORD [r10 + offset], r15),
+        11 => dynasm!(code; mov QWORD [r11 + offset], r15),
+        12 => dynasm!(code; mov QWORD [r12 + offset], r15),
+        13 => dynasm!(code; mov QWORD [r13 + offset], r15),
+        14 => dynasm!(code; mov QWORD [r14 + offset], r15),
+        15 => dynasm!(code; mov QWORD [r15 + offset], r15),
         _ => panic!("Unknown register"),
     }
 }
