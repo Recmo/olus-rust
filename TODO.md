@@ -31,3 +31,4 @@ Prover core:
 Reading list:
 * <https://arxiv.org/pdf/1910.10703.pdf>
 * <https://bootstrappable.org/>
+* <http://www.gii.upv.es/tlsf/files/ecrts04_tlsf.pdf>
