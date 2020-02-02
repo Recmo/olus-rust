@@ -96,7 +96,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn find(&self, expr: &Expression) -> Source {
+    pub(crate) fn find(&self, expr: &Expression) -> Source {
         use Expression::*;
         use Source::*;
         match expr {
@@ -137,6 +137,9 @@ impl<'a> Context<'a> {
 }
 
 fn code_transition(ctx: &mut Context<'_>, target: &MachineState) {
+    // Reserved registers currently
+    assert_eq!(target.registers[14], None);
+    assert_eq!(target.registers[15], None);
     // Rough order:
     // * Drop registers? (depends on type)
     // * Shuffle registers? (Can also have duplicates and drops)
@@ -193,7 +196,7 @@ fn code_transition(ctx: &mut Context<'_>, target: &MachineState) {
     }
 }
 
-fn assemble_decl(ctx: &mut Context, decl: &Declaration) {
+fn assemble_decl(ctx: &mut Context<'_>, decl: &Declaration) {
     // Transition into the correct machine state
     ctx.state = MachineState::from_symbols(&decl.procedure);
     let target = MachineState::from_expressions(&decl.call);

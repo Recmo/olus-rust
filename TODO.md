@@ -1,11 +1,16 @@
 Phase 0:
 * Codegen to x86_64 Mach-O exec without stack. (DONE)
-* Bump allocator for closures, no deallocation.
-* Hardcoded closure size, function in header
-* Closure & 64 bit register type.
-* `add` `sub` `mul` `iszero` builtins
-* Calling conventions: closure in r0, args in r1..r15, fail when >15 args.
+* Bump allocator for closures, no deallocation. (DONE)
+* Hardcoded closure size, function in header (Not needed)
+* Closure & 64 bit register type. (DONE)
+* `add` `sub` `mul` `iszero` builtins (DONE)
+* Calling conventions: closure in r0, args in r1..r15, fail when >13 args. (DONE)
 * Deduplicate literals (DONE)
+* Fully functional closure analysis
+
+Phase 0.5:
+* Create multiple and recursive closures
+* Solve state transition overlap edge cases
 
 Phase 1:
 * Constant time reference counting.

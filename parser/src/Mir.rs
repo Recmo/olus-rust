@@ -94,8 +94,9 @@ impl Module {
                     if !is_name {
                         required.set(*i, true);
                     } else {
-                        // TODO: Recursive closures
+                        // TODO: Recursive closures!
                         println!("Ignoring closure for {} in {}", *i, decl.procedure[0]);
+                        unimplemented!();
                     }
                 }
             }
