@@ -7,8 +7,9 @@
         {
             "type": "lldb",
             "request": "launch",
+            "stopOnEntry": true,
             "name": "Debug foo",
-            "program": "${workspaceFolder}/codegen/foo",
+            "program": "${workspaceFolder}/a.out",
             "args": [],
             "cwd": "${workspaceFolder}"
         }
