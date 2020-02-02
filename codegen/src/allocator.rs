@@ -2,6 +2,15 @@ use crate::{macho::RAM_START, utils::assemble_read4};
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi};
 
+pub(crate) fn initial_ram() -> Vec<u8> {
+    let mut ram = dynasmrt::x64::Assembler::new().unwrap();
+    dynasm!(ram
+        ; .qword RAM_START as i64
+    );
+    let ram = ram.finalize().expect("Finalize after commit.");
+    ram.to_vec()
+}
+
 pub(crate) trait Allocator {
     fn alloc(code: &mut Assembler, reg: usize, size: usize);
     fn drop(code: &mut Assembler, reg: usize);

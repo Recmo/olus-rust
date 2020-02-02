@@ -71,7 +71,7 @@ pub fn codegen(module: &Module, destination: &PathBuf) -> Result<(), Box<dyn Err
     // Layout should not change between passes
     assert_eq!(code_layout, code_layout_final);
 
-    let ram = vec![];
+    let ram = allocator::initial_ram();
     let assembly = Assembly { code, rom, ram };
     assembly.save(destination)
 }
