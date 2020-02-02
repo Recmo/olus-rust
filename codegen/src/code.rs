@@ -160,7 +160,9 @@ fn code_transition(ctx: &mut Context<'_>, target: &MachineState) {
                     let size = 8 * (1 + decl.closure.len());
 
                     // Allocate space for the closure and put pointer in reg
+                    // This immediately overwrites the register
                     Bump::alloc(ctx.asm, i, size);
+                    ctx.state.registers[i] = Some(expr.clone());
 
                     // Write code pointer
                     assemble_write_const(ctx.asm, i, 0, ctx.code.declarations[j] as u64);
