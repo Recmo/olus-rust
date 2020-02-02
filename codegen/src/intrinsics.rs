@@ -15,6 +15,7 @@ pub(crate) fn intrinsic(ops: &mut Assembler, name: &str) {
         "add" => add(ops),
         "sub" => sub(ops),
         "mul" => mul(ops),
+        "divmod" => divmod(ops),
         "isZero" => is_zero(ops),
         // TODO:
         "input" => is_zero(ops),
@@ -77,6 +78,22 @@ fn sub(ops: &mut Assembler) {
 fn mul(ops: &mut Assembler) {
     dynasm!(ops
         ; mulx r0, r1, r1 // r0:r1 = r1 * r2
+        ; mov r0, r3
+        ; jmp QWORD [r0]
+    );
+}
+
+/// Emit the div builtin
+/// `divmod a b ret`
+fn divmod(ops: &mut Assembler) {
+    // TODO: Expose high bits
+    dynasm!(ops
+        ; mov r4, r2
+        ; mov r0, r1
+        ; xor r2, r2
+        ; div r4  // r0 = r2:r0 / r4
+                  // r2 = r2:r0 % r4
+        ; mov r1, r0
         ; mov r0, r3
         ; jmp QWORD [r0]
     );

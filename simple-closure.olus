@@ -1,11 +1,29 @@
-println line ret ↦
+printLine line return ↦
     print line (↦)
     print “
-” ret
+” (↦)
+    return
 
-main ↦
-    println “Hello, World!” (↦)
-    println “Hello, World!” (↦)
-    println “Hello, World!” (↦)
-    println “Hello, World!” (↦)
+equals n m true false ↦
+    isZero (sub n m) true false
+
+printNum n return ↦
+    equals n 0 (↦ print “0” return) (↦)
+    equals n 1 (↦ print “1” return) (↦)
+    equals n 2 (↦ print “2” return) (↦)
+    equals n 3 (↦ print “3” return) (↦)
+    equals n 4 (↦ print “4” return) (↦)
+    equals n 5 (↦ print “5” return) (↦)
+    equals n 6 (↦ print “6” return) (↦)
+    equals n 7 (↦ print “7” return) (↦)
+    equals n 8 (↦ print “8” return) (↦)
+    equals n 9 (↦ print “9” return) (↦)
+    divmod n 10 (q r ↦)
+    printNum q (↦)
+    printNum r return
+
+main return ↦
+    print “The number is: ” (↦)
+    printNum 1337 (↦)
+    printLine “!” (↦)
     exit 0

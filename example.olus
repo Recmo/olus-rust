@@ -1,11 +1,30 @@
-printLine s return ↦
-    print s (↦)
-    print “\n” (↦)
+printLine line return ↦
+    print line (↦)
+    print “
+” (↦)
     return
+
+equals n m true false ↦
+    isZero (sub n m) true false
+
+printNum n return ↦
+    equals n 0 (↦ print “0” return) (↦)
+    equals n 1 (↦ print “1” return) (↦)
+    equals n 2 (↦ print “2” return) (↦)
+    equals n 3 (↦ print “3” return) (↦)
+    equals n 4 (↦ print “4” return) (↦)
+    equals n 5 (↦ print “5” return) (↦)
+    equals n 6 (↦ print “6” return) (↦)
+    equals n 7 (↦ print “7” return) (↦)
+    equals n 8 (↦ print “8” return) (↦)
+    equals n 9 (↦ print “9” return) (↦)
+    divmod n 10 (q r ↦)
+    printNum q (↦)
+    printNum r return
 
 askNum question return ↦
     print question (↦)
-    return (parseInt (input))
+    return 13
 
 square n return ↦
     return (mul n n)
@@ -30,7 +49,7 @@ fibpn n return ↦
 main return ↦
     printLine “Hello, World!” (↦)
     askNum “Please enter a number: ” (n ↦)
-    print n (↦)
+    printNum n (↦)
     print “ factorial is ” (↦)
     printLine (fact n) (↦)
     print n (↦)
