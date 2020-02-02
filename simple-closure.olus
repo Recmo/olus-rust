@@ -22,8 +22,13 @@ printNum n return ↦
     printNum q (↦)
     printNum r return
 
+fib n return ↦
+    isZero n (↦ return 0) (↦ sub n 1 (m ↦))
+    isZero m (↦ return 1) (↦ sub m 1 (k ↦))
+    return (add (fib m) (fib k))
+
 main return ↦
     print “The number is: ” (↦)
-    printNum 1337 (↦)
+    printNum (fib 20) (↦)
     printLine “!” (↦)
     exit 0

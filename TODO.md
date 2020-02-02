@@ -6,10 +6,11 @@ Phase 0:
 * `add` `sub` `mul` `iszero` builtins (DONE)
 * Calling conventions: closure in r0, args in r1..r15, fail when >13 args. (DONE)
 * Deduplicate literals (DONE)
-* Fully functional closure analysis
+* Fully functional closure analysis (DONE)
+* Create multiple closures (DONE)
+* Support multipage code and rom
 
 Phase 0.5:
-* Create multiple and recursive closures
 * Solve state transition overlap edge cases
 
 Phase 1:
