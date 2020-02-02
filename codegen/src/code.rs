@@ -160,32 +160,31 @@ fn code_transition(ctx: &mut Context<'_>, target: &MachineState) {
                     // Closure: [<code pointer>, <value>, ...]
                     let size = 8 * (1 + decl.closure.len());
 
-                    // HACK: We pretend the destination is r14 so we don't clobber anything yet.
-                    let real_i = i;
-                    let i = 14;
+                    // HACK: We construct in r14 and move in the end.
 
                     // Allocate space for the closure and put pointer in reg
-                    // This immediately overwrites the register
-                    Bump::alloc(ctx.asm, i, size);
-                    ctx.state.registers[i] = Some(expr.clone());
+                    // This immediately overwrites the register, but at this point it is still only
+                    // a partially assembled closure!
+                    Bump::alloc(ctx.asm, 14, size);
+                    ctx.state.registers[14] = Some(expr.clone());
 
                     // Write code pointer
-                    assemble_write_const(ctx.asm, i, 0, ctx.code.declarations[j] as u64);
+                    assemble_write_const(ctx.asm, 14, 0, ctx.code.declarations[j] as u64);
 
                     // Write values
                     for (j, sym) in decl.closure.iter().enumerate() {
                         let offset = 8 * (1 + j);
                         match ctx.find(&Expression::Symbol(*sym)) {
                             Source::Constant(_) => panic!("Constants don't go into closures."),
-                            Source::Register(k) => assemble_write_reg(ctx.asm, i, offset, k),
-                            Source::Closure(k) => assemble_write_read(ctx.asm, i, offset, k),
+                            Source::Register(k) => assemble_write_reg(ctx.asm, 14, offset, k),
+                            Source::Closure(k) => assemble_write_read(ctx.asm, 14, offset, k),
                             Source::Alloc(_) => panic!("Nested closures unsupported!"),
                             Source::None => panic!("Could not find value for closure."),
                         }
                     }
 
                     // Move to real destination reg
-                    assemble_mov(ctx.asm, real_i, i);
+                    assemble_mov(ctx.asm, i, 14);
                 }
                 Source::None => panic!("Don't know how to create {:?}", expr),
             };
