@@ -3,15 +3,9 @@ println line ret ↦
     print “
 ” ret
 
-left ↦
-    println “Left” (↦)
-    exit 0
-
-right ↦
-    println “Right” (↦)
-    exit 0
-
 main ↦
-    mul 5 5 (k ↦)
-    sub k 25 (n ↦)
-    isZero n left right
+    println “Hello, World!” (↦)
+    println “Hello, World!” (↦)
+    println “Hello, World!” (↦)
+    println “Hello, World!” (↦)
+    exit 0

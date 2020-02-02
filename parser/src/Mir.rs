@@ -42,6 +42,24 @@ impl Module {
         n
     }
 
+    pub fn provided_mask(&self, decl: &Declaration) -> BitVec {
+        let mut mask = BitVec::repeat(false, self.symbols.len());
+        for i in &decl.procedure {
+            mask.set(*i, true);
+        }
+        mask
+    }
+
+    pub fn required_mask(&self, decl: &Declaration) -> BitVec {
+        let mut mask = BitVec::repeat(false, self.symbols.len());
+        for e in &decl.call {
+            if let Expression::Symbol(s) = e {
+                mask.set(*s, true);
+            }
+        }
+        mask
+    }
+
     fn convert(&mut self, expr: ast::Expression) -> Expression {
         use ast::Expression::*;
         match expr {
@@ -74,6 +92,16 @@ impl Module {
         }
     }
 
+    pub fn decl<'a>(&'a self, name: usize) -> &'a Declaration {
+        assert!(self.names[name]);
+        let i = self
+            .declarations
+            .iter()
+            .position(|decl| decl.procedure[0] == name)
+            .unwrap();
+        &self.declarations[i]
+    }
+
     pub fn find_names(&mut self) {
         self.names = BitVec::repeat(false, self.symbols.len());
         for decl in &self.declarations {
@@ -81,34 +109,40 @@ impl Module {
         }
     }
 
-    pub fn compute_closures(&mut self) {
-        for decl in self.declarations.iter_mut() {
-            let mut provided = BitVec::repeat(false, self.symbols.len());
-            for i in &decl.procedure {
-                provided.set(*i, true);
-            }
-            let mut required = BitVec::repeat(false, self.symbols.len());
-            for e in &decl.call {
-                if let Expression::Symbol(i) = e {
-                    let is_name = self.names[*i];
-                    if !is_name {
-                        required.set(*i, true);
-                    } else {
-                        // TODO: Recursive closures!
-                        println!("Ignoring closure for {} in {}", *i, decl.procedure[0]);
-                        unimplemented!();
-                    }
-                }
-            }
-            let closure = required & !provided;
+    fn closure_rec(&self, decl: &Declaration, provided: &BitVec) -> BitVec {
+        // TODO: Reformulate as a linear problem over GF(2)^{N x M} and
+        // solve using (sparse) matrices.
+        let context = self.provided_mask(decl) | provided.clone();
+        let required = self.required_mask(decl);
+        let mut closure = required & !context.clone();
+        let names = closure.clone() & self.names.clone();
+        dbg!(&names);
+        // If a closure element is a name, it will be recursively replaced
+        // by the associated closure. But note that we still filter out
+        // procedure.
+        for name in (0..self.symbols.len()).filter(|i| names[*i]) {
+            closure.set(name, false);
+            closure |= self.closure_rec(self.decl(name), &context);
+            dbg!(name);
+        }
 
-            // First approximation: Closure is call - procedure
+        // Can not have any names in the closure.
+        assert!((closure.clone() & self.names.clone()).not_any());
+        closure
+    }
+
+    pub fn compute_closures(&mut self) {
+        assert_eq!(self.names.len(), self.symbols.len());
+        let empty = BitVec::repeat(false, self.symbols.len());
+        let closures = self
+            .declarations
+            .iter()
+            .map(|decl| self.closure_rec(decl, &empty))
+            .collect::<Vec<_>>();
+        for (decl, closure) in self.declarations.iter_mut().zip(closures.into_iter()) {
             decl.closure = (0..self.symbols.len())
                 .filter(|i| closure[*i])
                 .collect::<Vec<_>>();
-            // If a closure element is a name, it will be recursively replaced
-            // by the associated closure. But note that we still filter out
-            // procedure.
         }
     }
 }
@@ -148,6 +182,7 @@ impl From<&ast::Statement> for Module {
             panic!("Expected block")
         }
         module.find_names();
+        dbg!(&module);
         module.compute_closures();
         module
     }
