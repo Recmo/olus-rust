@@ -5,4 +5,5 @@ println line ret ↦
 
 main ↦
     println “Hello, World!” (↦)
+    println “Hello, World!” (↦)
     exit 0
