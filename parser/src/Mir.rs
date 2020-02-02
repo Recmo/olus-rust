@@ -116,14 +116,12 @@ impl Module {
         let required = self.required_mask(decl);
         let mut closure = required & !context.clone();
         let names = closure.clone() & self.names.clone();
-        dbg!(&names);
         // If a closure element is a name, it will be recursively replaced
         // by the associated closure. But note that we still filter out
         // procedure.
         for name in (0..self.symbols.len()).filter(|i| names[*i]) {
             closure.set(name, false);
             closure |= self.closure_rec(self.decl(name), &context);
-            dbg!(name);
         }
 
         // Can not have any names in the closure.
@@ -182,7 +180,6 @@ impl From<&ast::Statement> for Module {
             panic!("Expected block")
         }
         module.find_names();
-        dbg!(&module);
         module.compute_closures();
         module
     }

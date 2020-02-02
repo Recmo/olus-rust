@@ -229,8 +229,6 @@ pub(crate) fn compile(module: &Module, rom: &rom::Layout, code: &Layout) -> (Vec
         .expect("Symbol 'main' is not a name.");
     let main = &module.declarations[main_index];
     assert_eq!(main.closure.len(), 0);
-    dbg!(main);
-    dbg!(rom.closures[main_index]);
 
     dynasm!(asm
         // Prelude, write rsp to RAM[END-8]. End of ram is initialized with with

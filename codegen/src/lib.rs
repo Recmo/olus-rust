@@ -60,11 +60,13 @@ pub fn codegen(module: &Module, destination: &PathBuf) -> Result<(), Box<dyn Err
 
     // First pass with dummy layout
     let code_layout = code::Layout::dummy(module);
-    let (_, code_layout) = code::compile(module, &rom_layout, &code_layout);
+    let (code, code_layout) = code::compile(module, &rom_layout, &code_layout);
     dbg!(&code_layout);
+    assert!(code.len() < 4096);
 
     // Compile final rom
     let rom = rom::compile(module, &code_layout);
+    assert!(rom.len() < 4096);
 
     // Second pass compile
     let (code, code_layout_final) = code::compile(module, &rom_layout, &code_layout);
