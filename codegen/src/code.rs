@@ -209,12 +209,20 @@ pub(crate) fn compile(module: &Module, rom: &rom::Layout, code: &Layout) -> (Vec
 
     let mut layout = Layout::default();
     let mut asm = dynasmrt::x64::Assembler::new().unwrap();
-    let main_index = module
+    let main_symbol = module
         .symbols
         .iter()
         .position(|s| s == "main")
-        .expect("No main found.");
+        .expect("No symbol 'main' found.");
+    let main_index = module
+        .declarations
+        .iter()
+        .position(|decl| decl.procedure[0] == main_symbol)
+        .expect("Symbol 'main' is not a name.");
     let main = &module.declarations[main_index];
+    assert_eq!(main.closure.len(), 0);
+    dbg!(main);
+    dbg!(rom.closures[main_index]);
 
     dynasm!(asm
         // Prelude, write rsp to RAM[END-8]. End of ram is initialized with with
