@@ -1,9 +1,22 @@
 [book]
+title = "The Oluś programming language"
 authors = ["Remco Bloemen"]
 language = "en"
 multilingual = false
 src = "src"
-title = "The Oluś programming language"
 
 # TODO: Katex
 # See https://github.com/rust-lang/mdBook/issues/400
+
+[output.html]
+additional-css = [
+    # https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css
+    "vendor/katex.min.css",
+]
+additional-js = [
+    # https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.js
+    "vendor/katex.min.js",
+    # https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/contrib/auto-render.min.js
+    "vendor/auto-render.min.js",
+    "init.js",
+]

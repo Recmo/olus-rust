@@ -2,9 +2,8 @@
 
 Serial Oluś loves unicode. It follows the XIC spec for identifiers.
 
-
 $$
-\def\code#1{\mathtt{#1}}
+\gdef\code#1{\mathtt{#1}}
 $$
 
 As this language is functional, the most obvious example is the factorial function (as opposed to the 'hello world' for imperative languages):
@@ -30,13 +29,13 @@ $$
 \overbrace{
     \underbrace{
         \code{fact}
-    }_{\text{name}}
+    } _ {\text{name}}
     {\ }
     \underbrace{
         \code{n}
         {\ }
         \code{ret}
-    }_{\text{parameters}}
+    } _ {\text{parameters}}
 }^{\text{procedure}}
 \overbrace{
     {\ }
@@ -46,7 +45,7 @@ $$
 \overbrace{
     \underbrace{
         \code{isZero}
-    }_{\text{closure}}
+    } _ {\text{closure}}
     {\ }
     \underbrace{
         \code{n}
@@ -54,7 +53,7 @@ $$
         \code{base}
         {\ }
         \code{recurse}
-    }_{\text{arguments}}
+    } _ {\text{arguments}}
 }^{\text{call}}
 }^{\text{declaration}}
 $$
