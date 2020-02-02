@@ -203,10 +203,6 @@ fn assemble_decl(ctx: &mut Context, decl: &Declaration) {
     dynasm!(ctx.asm
         ; jmp QWORD [r0]
     );
-    // TODO: Support
-    // * non closure jump `jmp r0`,
-    // * constant jump `jmp OFFSET` and
-    // * fall-through.
 }
 
 pub(crate) fn compile(module: &Module, rom: &rom::Layout, code: &Layout) -> (Vec<u8>, Layout) {

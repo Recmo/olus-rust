@@ -5,7 +5,8 @@ use dynasmrt::{x64::Assembler, DynasmApi};
 pub(crate) fn initial_ram() -> Vec<u8> {
     let mut ram = dynasmrt::x64::Assembler::new().unwrap();
     dynasm!(ram
-        ; .qword RAM_START as i64
+        // First 8 bytes are free memory pointer
+        ; .qword (RAM_START + 8) as i64
     );
     let ram = ram.finalize().expect("Finalize after commit.");
     ram.to_vec()
