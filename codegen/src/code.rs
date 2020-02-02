@@ -21,7 +21,7 @@ pub(crate) struct Layout {
 
 impl Layout {
     pub(crate) fn dummy(module: &Module) -> Layout {
-        const DUMMY: usize = usize::max_value();
+        const DUMMY: usize = i32::max_value() as usize;
         Layout {
             declarations: vec![DUMMY; module.declarations.len()],
             imports:      vec![DUMMY; module.imports.len()],
