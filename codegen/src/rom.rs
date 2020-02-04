@@ -1,4 +1,4 @@
-use crate::{code, macho::ROM_START};
+use crate::code;
 use dynasm::dynasm;
 use dynasmrt::DynasmApi;
 use parser::mir::Module;
@@ -11,9 +11,20 @@ pub(crate) struct Layout {
     pub(crate) strings:  Vec<usize>,
 }
 
-pub(crate) fn layout(module: &Module) -> Layout {
+impl Layout {
+    pub(crate) fn dummy(module: &Module) -> Layout {
+        const DUMMY: usize = i32::max_value() as usize;
+        Layout {
+            closures: vec![DUMMY; module.declarations.len()],
+            imports:  vec![DUMMY; module.imports.len()],
+            strings:  vec![DUMMY; module.strings.len()],
+        }
+    }
+}
+
+pub(crate) fn layout(module: &Module, rom_start: usize) -> Layout {
     let mut result = Layout::default();
-    let mut offset = ROM_START;
+    let mut offset = rom_start;
     for _decl in &module.declarations {
         result.closures.push(offset);
         offset += 8;
@@ -29,7 +40,11 @@ pub(crate) fn layout(module: &Module) -> Layout {
     result
 }
 
-pub(crate) fn compile(module: &Module, code_layout: &code::Layout) -> Vec<u8> {
+pub(crate) fn compile(
+    module: &Module,
+    code_layout: &code::Layout,
+    rom_start: usize,
+) -> (Vec<u8>, Layout) {
     assert_eq!(module.declarations.len(), code_layout.declarations.len());
     assert_eq!(module.imports.len(), code_layout.imports.len());
     let mut rom = dynasmrt::x64::Assembler::new().unwrap();
@@ -50,5 +65,5 @@ pub(crate) fn compile(module: &Module, code_layout: &code::Layout) -> Vec<u8> {
         );
     }
     let rom = rom.finalize().expect("Finalize after commit.");
-    rom.to_vec()
+    (rom.to_vec(), layout(module, rom_start))
 }

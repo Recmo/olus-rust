@@ -66,11 +66,12 @@ impl MachineState {
 }
 
 struct Context<'a> {
-    module: &'a Module,
-    rom:    &'a rom::Layout,
-    code:   &'a Layout,
-    asm:    &'a mut Assembler,
-    state:  MachineState,
+    module:    &'a Module,
+    code:      &'a Layout,
+    rom:       &'a rom::Layout,
+    ram_start: usize,
+    asm:       &'a mut Assembler,
+    state:     MachineState,
 }
 
 impl<'a> Context<'a> {
@@ -168,7 +169,7 @@ fn code_transition(ctx: &mut Context<'_>, target: &MachineState) {
                     // Allocate space for the closure and put pointer in reg
                     // This immediately overwrites the register, but at this point it is still only
                     // a partially assembled closure!
-                    Bump::alloc(ctx.asm, 14, size);
+                    Bump::alloc(ctx.asm, ctx.ram_start, 14, size);
                     ctx.state.registers[14] = Some(expr.clone());
 
                     // Write code pointer
@@ -208,7 +209,12 @@ fn assemble_decl(ctx: &mut Context<'_>, decl: &Declaration) {
     );
 }
 
-pub(crate) fn compile(module: &Module, rom: &rom::Layout, code: &Layout) -> (Vec<u8>, Layout) {
+pub(crate) fn compile(
+    module: &Module,
+    code: &Layout,
+    rom: &rom::Layout,
+    ram_start: usize,
+) -> (Vec<u8>, Layout) {
     assert_eq!(rom.closures.len(), module.declarations.len());
     assert_eq!(rom.imports.len(), module.imports.len());
     assert_eq!(rom.strings.len(), module.strings.len());
@@ -243,8 +249,9 @@ pub(crate) fn compile(module: &Module, rom: &rom::Layout, code: &Layout) -> (Vec
     {
         let mut ctx = Context {
             module,
-            rom,
             code,
+            rom,
+            ram_start,
             asm: &mut asm,
             state: MachineState::default(),
         };

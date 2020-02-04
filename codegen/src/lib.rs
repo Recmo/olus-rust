@@ -41,7 +41,10 @@ mod macho;
 mod rom;
 mod utils;
 
-use crate::{intrinsics::intrinsic, macho::Assembly};
+use crate::{
+    intrinsics::intrinsic,
+    macho::{ram_start, rom_start, Assembly},
+};
 use parser::mir::Module;
 use std::{error::Error, path::PathBuf};
 
@@ -52,28 +55,28 @@ use std::{error::Error, path::PathBuf};
 // r0: current closure pointer
 // r1..r15: arguments
 
-// TODO: Two phase: first lay out code, then
-
 pub fn codegen(module: &Module, destination: &PathBuf) -> Result<(), Box<dyn Error>> {
-    let rom_layout = rom::layout(module);
-    dbg!(&rom_layout);
+    let dummy_code_layout = code::Layout::dummy(module);
+    let dummy_rom_layout = rom::layout(module, 0);
+    // TODO: ram_start and ram_layout
 
     // First pass with dummy layout
-    let code_layout = code::Layout::dummy(module);
-    let (code, code_layout) = code::compile(module, &rom_layout, &code_layout);
-    dbg!(&code_layout);
-    assert!(code.len() < 4096);
+    let (code, code_layout) = code::compile(module, &dummy_code_layout, &dummy_rom_layout, 0);
 
     // Compile final rom
-    let rom = rom::compile(module, &code_layout);
+    let rom_start = rom_start(code.len());
+    println!("ROM start: {:08x}", rom_start);
+    let (rom, rom_layout) = rom::compile(module, &code_layout, rom_start);
     assert!(rom.len() < 4096);
 
     // Second pass compile
-    let (code, code_layout_final) = code::compile(module, &rom_layout, &code_layout);
+    let ram_start = ram_start(rom_start, rom.len());
+    println!("RAM start: {:08x}", ram_start);
+    let (code, code_layout_final) = code::compile(module, &code_layout, &rom_layout, ram_start);
     // Layout should not change between passes
     assert_eq!(code_layout, code_layout_final);
 
-    let ram = allocator::initial_ram();
+    let ram = allocator::initial_ram(ram_start);
     let assembly = Assembly { code, rom, ram };
     assembly.save(destination)
 }

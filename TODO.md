@@ -13,6 +13,7 @@ Phase 0:
 
 Phase 0.5:
 * Solve state transition overlap edge cases
+  => Use Dijkstra's algorithm to find the optimal transation between two states.
 
 Phase 1:
 * Constant time reference counting.

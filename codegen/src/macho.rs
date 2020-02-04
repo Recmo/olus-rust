@@ -4,11 +4,31 @@ use std::{error::Error, fs, fs::File, io::Write, os::unix::fs::PermissionsExt, p
 
 // TODO: These are not constant
 pub(crate) const CODE_START: usize = 0x11f8;
-pub(crate) const ROM_START: usize = 0x2000;
-pub(crate) const RAM_START: usize = 0x3000;
 
 const PAGE: usize = 4096;
 const RAM_PAGES: usize = 1024; // 4MB RAM
+
+pub(crate) fn rom_start(code_size: usize) -> usize {
+    // Add offset and round to next page boundary
+    let mut code_end = CODE_START + code_size;
+    if code_end % PAGE != 0 {
+        code_end += PAGE;
+        code_end -= code_end % PAGE;
+    }
+    assert_eq!(code_end % PAGE, 0);
+    code_end
+}
+
+pub(crate) fn ram_start(rom_start: usize, rom_size: usize) -> usize {
+    // Add offset and round to next page boundary
+    let mut rom_end = rom_start + rom_size;
+    if rom_end % PAGE != 0 {
+        rom_end += PAGE;
+        rom_end -= rom_end % PAGE;
+    }
+    assert_eq!(rom_end % PAGE, 0);
+    rom_end
+}
 
 /// The `code`, `rom` and `ram` segments will be extended to 4k page boundaries,
 /// concatenated and loaded at address 0x1000. Ram will be extended to 4MB.
