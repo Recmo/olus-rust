@@ -9,6 +9,7 @@ Phase 0:
 * Fully functional closure analysis (DONE)
 * Create multiple closures (DONE)
 * Support multipage code and rom
+* Only allocate const closures when closure is empty
 
 Phase 0.5:
 * Solve state transition overlap edge cases
@@ -38,3 +39,6 @@ Reading list:
 * <https://arxiv.org/pdf/1910.10703.pdf>
 * <https://bootstrappable.org/>
 * <http://www.gii.upv.es/tlsf/files/ecrts04_tlsf.pdf>
+* <https://paperhub.s3.amazonaws.com/24842c95fb1bc5d7c5da2ec735e106f0.pdf>
+* <http://compilers.cs.uni-saarland.de/papers/lkh15_cgo.pdf>
+* <https://os.phil-opp.com/allocator-designs/>

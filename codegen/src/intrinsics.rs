@@ -87,6 +87,8 @@ fn mul(ops: &mut Assembler) {
 /// `divmod a b ret`
 fn divmod(ops: &mut Assembler) {
     // TODO: Expose high bits
+    // See <https://www.felixcloutier.com/x86/div>
+    // TODO: Capture #DE event
     dynasm!(ops
         ; mov r4, r2
         ; mov r0, r1
