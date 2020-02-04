@@ -1,0 +1,69 @@
+printLine line return ↦
+    print line (↦)
+    print “
+” (↦)
+    return
+
+equals n m true false ↦
+    isZero (sub n m) true false
+
+printNum n return ↦
+    equals n 0 (↦ print “0” return) (↦)
+    equals n 1 (↦ print “1” return) (↦)
+    equals n 2 (↦ print “2” return) (↦)
+    equals n 3 (↦ print “3” return) (↦)
+    equals n 4 (↦ print “4” return) (↦)
+    equals n 5 (↦ print “5” return) (↦)
+    equals n 6 (↦ print “6” return) (↦)
+    equals n 7 (↦ print “7” return) (↦)
+    equals n 8 (↦ print “8” return) (↦)
+    equals n 9 (↦ print “9” return) (↦)
+    divmod n 10 (q r ↦)
+    printNum q (↦)
+    printNum r return
+
+askNum question return ↦
+    print question (↦)
+    return 20
+
+square n return ↦
+    return (mul n n)
+
+fact n return ↦
+    isZero n (↦ return 1) (↦)
+    return (mul n (fact (sub n 1)))
+
+fib n return ↦
+    isZero n (↦ return 0) (↦ sub n 1 (m ↦))
+    isZero m (↦ return 1) (↦ sub m 1 (k ↦))
+    return (add (fib m) (fib k))
+
+fibp n a b return ↦
+    isZero n (↦ return a) (↦)
+    fibp (sub n 1) (add a b) a return
+
+fibpn n return ↦
+    isZero n (↦ return 0) (↦)
+    fibp (sub n 1) 1 0 return
+
+compute n ret ↦
+    printNum n (↦)
+    print “ factorial is ” (↦)
+    printNum (fact n) (↦)
+    print “ and fibonaci is ” (↦)
+    printNum (fibpn n) (↦)
+    printLine “” (↦)
+    ret
+
+main ↦
+    printLine “Hello, World!” (↦)
+    compute 0 (↦)
+    compute 1 (↦)
+    compute 2 (↦)
+    compute 3 (↦)
+    compute 4 (↦)
+    compute 5 (↦)
+    compute 10 (↦)
+    compute 20 (↦)
+    compute 30 (↦)
+    exit 0

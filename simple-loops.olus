@@ -46,16 +46,21 @@ fibpn n return ↦
     isZero n (↦ return 0) (↦)
     fibp (sub n 1) 1 0 return
 
-main ↦
-    printLine “Hello, World!” (↦)
-    askNum “Please enter a number: ” (n ↦)
-    printLine “” (↦)
+compute n ret ↦
     printNum n (↦)
     print “ factorial is ” (↦)
     printNum (fact n) (↦)
-    printLine “” (↦)
-    printNum n (↦)
-    print “ fibonaci is ” (↦)
+    print “ and fibonaci is ” (↦)
     printNum (fibpn n) (↦)
     printLine “” (↦)
+    ret
+
+loop start end body ret ↦
+    equals start end ret (↦)
+    body start (↦)
+    loop (add start 1) end body ret
+
+main ↦
+    printLine “Hello, World!” (↦)
+    loop 0 10 compute (↦)
     exit 0
