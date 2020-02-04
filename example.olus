@@ -24,7 +24,7 @@ printNum n return ↦
 
 askNum question return ↦
     print question (↦)
-    return 13
+    return 20
 
 square n return ↦
     return (mul n n)
@@ -46,13 +46,16 @@ fibpn n return ↦
     isZero n (↦ return 0) (↦)
     fibp (sub n 1) 1 0 return
 
-main return ↦
+main ↦
     printLine “Hello, World!” (↦)
     askNum “Please enter a number: ” (n ↦)
+    printLine “” (↦)
     printNum n (↦)
     print “ factorial is ” (↦)
-    printLine (fact n) (↦)
-    print n (↦)
+    printNum (fact n) (↦)
+    printLine “” (↦)
+    printNum n (↦)
     print “ fibonaci is ” (↦)
-    printLine (fibpn n) (↦)
-    return
+    printNum (fibpn n) (↦)
+    printLine “” (↦)
+    exit 0
