@@ -63,6 +63,15 @@ impl MachineState {
         }
         MachineState { registers }
     }
+
+    fn satisfies(&self, other: &MachineState) -> bool {
+        for (left, right) in self.registers.iter().zip(other.registers.iter()) {
+            if right.is_some() && left != right {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 struct Context<'a> {
@@ -195,6 +204,9 @@ fn code_transition(ctx: &mut Context<'_>, target: &MachineState) {
             ctx.state.registers[i] = Some(expr.clone());
         }
     }
+
+    // Make sure we did things right, current state
+    assert!(ctx.state.satisfies(target));
 }
 
 fn assemble_decl(ctx: &mut Context<'_>, decl: &Declaration) {
