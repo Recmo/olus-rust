@@ -1,0 +1,16 @@
+equals n m true false ↦
+    isZero (sub n m) true false
+
+loop start end body ret ↦
+    equals start end ret (↦)
+    body start (↦)
+    loop (add start 1) end ret
+
+compute n ret ↦
+    print “.” (↦)
+    ret
+
+main ↦
+    print “Dots:” (↦)
+    loop 0 100 compute (↦)
+    exit 0
