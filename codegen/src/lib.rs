@@ -37,6 +37,7 @@
 mod allocator;
 mod code;
 mod intrinsics;
+mod machine_state;
 mod macho;
 mod rom;
 mod utils;

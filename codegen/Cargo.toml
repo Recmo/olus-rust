@@ -12,9 +12,10 @@ license = "MIT"
 
 [dependencies]
 log = "0.4.8"
-dynasm = "0.5.2"
-dynasmrt = "0.5.2"
+dynasm = { git = "https://github.com/CensoredUsername/dynasm-rs", branch = "dev" }
+dynasmrt = { git = "https://github.com/CensoredUsername/dynasm-rs", branch = "dev" }
 parser = { path = "../parser" }
 serde = { version = "1.0.104", features = ["derive"] }
+pathfinding = "2.0.3"
 
 # TODO: https://github.com/CensoredUsername/dynasm-rs/issues/45

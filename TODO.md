@@ -1,4 +1,7 @@
+# To do
+
 Phase 0:
+
 * Codegen to x86_64 Mach-O exec without stack. (DONE)
 * Bump allocator for closures, no deallocation. (DONE)
 * Hardcoded closure size, function in header (Not needed)
@@ -8,20 +11,35 @@ Phase 0:
 * Deduplicate literals (DONE)
 * Fully functional closure analysis (DONE)
 * Create multiple closures (DONE)
-* Support multipage code and rom
+* Support multipage code and rom (DONE)
 * Only allocate const closures when closure is empty
 
 Phase 0.5:
+
 * Solve state transition overlap edge cases
-  => Use Dijkstra's algorithm to find the optimal transation between two states.
+  => Use Dijkstra's algorithm to find the optimal transition between two states.
+* Elf64 output
+* More examples:
+  * Bottles of beer example <http://99-bottles-of-beer.net/>
+  * Binary trees from <https://benchmarksgame-team.pages.debian.net/benchmarksgame/description/binarytrees.html#binarytrees>
+  * Select examples from <https://rosettacode.org/wiki/Category:Programming_Tasks>
+    * <https://rosettacode.org/wiki/Y_combinator>
+* More intrinsics:
+  * Read stdin
+  * Closure compare
+  * fork
 
 Phase 1:
+
 * Constant time reference counting.
 * Computed fixed closure size.
+* SLAB allocator
 * Enumerate possible procedures at call sites
 * Inlining
+* A way to split source over multiple files
 
 Future:
+
 * Deduplicate procedures
 * Break up >16 arg functions into closures.
 * Closure lifetime, multiplicity analysis.
@@ -30,13 +48,16 @@ Future:
 * Calling convention involving non-general purpose registers:
   * XMM registers
   * Flags
+* Thread creationg (Linux clone, BSD bsdthread_create)
 
 Prover core:
+
 * Prover core (Metamask ish)
-  <https://arxiv.org/pdf/1910.10703.pdf>
+  See MM0 <https://arxiv.org/pdf/1910.10703.pdf>
 
 
 Reading list:
+
 * <https://arxiv.org/pdf/1910.10703.pdf>
 * <https://bootstrappable.org/>
 * <http://www.gii.upv.es/tlsf/files/ecrts04_tlsf.pdf>
