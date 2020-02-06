@@ -22,8 +22,10 @@ Phase 0.5:
 * More examples:
   * Bottles of beer example <http://99-bottles-of-beer.net/>
   * Binary trees from <https://benchmarksgame-team.pages.debian.net/benchmarksgame/description/binarytrees.html#binarytrees>
-  * Select examples from <https://rosettacode.org/wiki/Category:Programming_Tasks>
-    * <https://rosettacode.org/wiki/Y_combinator>
+  * Select examples from
+    * <https://rosettacode.org/wiki/Category:Programming_Tasks>
+      * <https://rosettacode.org/wiki/Y_combinator>
+    * <http://mlton.org/Performance>
 * More intrinsics:
   * Read stdin
   * Closure compare

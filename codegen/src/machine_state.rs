@@ -1,7 +1,7 @@
 use crate::allocator::{Allocator, Bump};
 use dynasm::dynasm;
 use dynasmrt::{DynasmApi, SimpleAssembler};
-use pathfinding::directed::astar::astar;
+use pathfinding::directed::{astar::astar, fringe::fringe, idastar::idastar};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet as Set;
 
@@ -180,13 +180,18 @@ impl State {
         }
     }
 
+    // Heuristic function.
+    // Admissable: it is always <= the real cost
+    // TODO: Is it consistent?
     fn min_distance(&self, goal: &Self) -> usize {
         if self.satisfies(goal) {
             return 0;
         }
         if !self.reachable(goal) {
-            return usize::max_value();
+            // Not absolute max so we can still add some small costs
+            return usize::max_value() >> 2;
         }
+        // Compute a sort of hamming distance
         // TODO: Better estimate
         let mut distance = 0;
         for (value, goal) in self.registers.iter().zip(goal.registers.iter()) {
@@ -197,12 +202,25 @@ impl State {
         // Add any allocations that need to be done
         // TODO: Multiset
         distance += goal.alloc_sizes().difference(&self.alloc_sizes()).count() * 24;
-        distance
+        // TODO: Make sure this closely matches ts.cost()
+        dbg!(distance);
+        distance * 100 + 2
     }
 
     // Generate all potentially useful transitions towards a goal
+    // TODO: Return non-allocating generator
     fn transitions(&self, goal: &Self) -> Vec<Transition> {
         let mut result = Vec::default();
+
+        // TODO: Registers unspecified in current and goal are
+        // interchangeable, so only pick one.
+
+        // Allocate for goal sizes
+        for size in goal.alloc_sizes().into_iter() {
+            for dest in 0..=15 {
+                result.push(Transition::Alloc { dest, size });
+            }
+        }
 
         // Generate Set transitions for each goal literal and register.
         for value in goal.literals().into_iter() {
@@ -234,6 +252,7 @@ impl State {
             if let Value::Reference(values) = &self.registers[source] {
                 for offset in 0..values.len() {
                     for dest in 0..=15 {
+                        // TODO: No point in reading unspecified
                         result.push(Transition::Read {
                             dest,
                             source,
@@ -242,7 +261,7 @@ impl State {
 
                         // Writes have source and dest flipped
                         if self.registers[dest].is_specified() {
-                            result.push(Transition::Read {
+                            result.push(Transition::Write {
                                 dest: source,
                                 offset,
                                 source: dest,
@@ -253,13 +272,7 @@ impl State {
             }
         }
 
-        // Allocate for goal sizes
-        for size in goal.alloc_sizes().into_iter() {
-            for dest in 0..=15 {
-                result.push(Transition::Alloc { dest, size });
-            }
-        }
-
+        dbg!(result.len());
         result
     }
 
@@ -267,12 +280,11 @@ impl State {
     pub(crate) fn transition(&self, goal: &Self) -> Vec<Transition> {
         assert!(self.reachable(goal));
 
-        // Find the optimal transition using pathfinder's A* implementation
+        // Find the optimal transition using pathfinder
         let (path, cost) = astar(
             self,
             |n: &Self| {
-                dbg!(n)
-                    .transitions(goal)
+                n.transitions(goal)
                     .into_iter()
                     .map(|t| {
                         (
@@ -294,6 +306,8 @@ impl State {
         // Pathfinder gives a list of nodes visited, not the path taken.
         dbg!(path);
         dbg!(cost);
+
+        // TODO: Convert to path by finding best edge between each pair of nodes.
 
         unimplemented!()
     }
@@ -322,8 +336,10 @@ impl Transition {
         match self {
             Set { .. } => 3,
             Copy { .. } => 3,
+            // See https://stackoverflow.com/questions/26469196/swapping-2-registers-in-8086-assembly-language16-bits
+            // See https://stackoverflow.com/questions/45766444/why-is-xchg-reg-reg-a-3-micro-op-instruction-on-modern-intel-architectures
             Swap { .. } => 12,
-            Alloc { .. } => 24, // Estimate
+            Alloc { .. } => 24, // TODO: Better estimate
             Read { .. } => 6,
             Write { .. } => 12,
         }
@@ -421,11 +437,25 @@ mod test {
     use super::*;
 
     #[test]
-    fn transition_empty() {
+    fn transition_test1() {
         let mut start = State::default();
         start.registers[3] = Value::Symbol(3);
         let mut goal = State::default();
         goal.registers[9] = Value::Reference(vec![Value::Symbol(3)]);
+        assert_eq!(start.transition(&goal), vec![]);
+    }
+
+    #[test]
+    fn transition_test2() {
+        let mut start = State::default();
+        for i in 0..=3 {
+            start.registers[i] = Value::Symbol(i);
+        }
+        let mut goal = State::default();
+        for i in 0..=3 {
+            goal.registers[i] = Value::Symbol(3 - i);
+        }
+        dbg!(&start, &goal);
         assert_eq!(start.transition(&goal), vec![]);
     }
 }
