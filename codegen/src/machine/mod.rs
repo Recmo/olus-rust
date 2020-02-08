@@ -1,3 +1,4 @@
+mod assembler;
 mod state;
 mod transition;
 mod value;

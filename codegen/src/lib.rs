@@ -6,7 +6,7 @@
     clippy::cargo,
     rust_2018_idioms,
     future_incompatible,
-    unused,
+    // TODO unused,
 
     // Additional unused warnings (not included in `unused`)
     unused_lifetimes,
@@ -51,8 +51,8 @@ use bitvec;
 use parser::mir::Module;
 use std::{collections::HashSet, error::Error, path::PathBuf};
 
-pub(crate) type Set<T> = HashSet<T>;
-pub(crate) type BitVec = bitvec::vec::BitVec<bitvec::order::Lsb0, u64>;
+type Set<T> = HashSet<T>;
+type BitVec = bitvec::vec::BitVec<bitvec::order::Lsb0, u64>;
 
 pub use offset_assembler::OffsetAssembler;
 
