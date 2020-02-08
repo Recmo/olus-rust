@@ -40,7 +40,7 @@ pub(crate) enum Transition {
 }
 
 impl Transition {
-    pub(crate) fn applies(&self, state: &mut State) -> bool {
+    pub(crate) fn applies(&self, state: &State) -> bool {
         // TODO: Does not check if it overwrites a last Reference. We could do
         // this quickly by tracking reference counts in Allocations. This is also
         // a good foundation for deferred reference counting, once we implement that.
@@ -83,7 +83,6 @@ impl Transition {
     pub(crate) fn apply(&self, state: &mut State) {
         use Transition::*;
         use Value::*;
-        dbg!(&state, self);
         debug_assert!(self.applies(state));
         match *self {
             Set { dest, value } => state.registers[dest.as_u8() as usize] = Literal(value),
@@ -107,7 +106,7 @@ impl Transition {
                 dest,
                 offset,
                 source,
-            } => unimplemented!(),
+            } => *(state.get_mut_reference(dest, offset).unwrap()) = state.get_register(source),
             Alloc { dest, size } => {
                 state.registers[dest.as_u8() as usize] = Reference {
                     index:  state.allocations.len(),

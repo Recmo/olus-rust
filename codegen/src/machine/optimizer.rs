@@ -2,6 +2,8 @@ use super::{Register, State, Transition, Value};
 use itertools::Itertools;
 use pathfinding::directed::astar::astar;
 
+// TODO: Caches results using normalized version of the problem.
+
 struct TransitionIter {
     trans: Vec<Transition>,
     index: usize,
@@ -15,13 +17,18 @@ impl State {
         let (path, cost) = astar(
             self,
             |n| {
-                dbg!(n)
-                    .useful_transitions(goal)
-                    .map(|t| {
+                println!("Exploring machine state:");
+                println!("{}", n);
+                n.useful_transitions(goal)
+                    .filter_map(|t| {
                         // TODO: lazily compute next state?
                         let mut new_state = n.clone();
                         t.apply(&mut new_state);
-                        (new_state, t.cost())
+                        if new_state.is_valid() {
+                            Some((new_state, t.cost()))
+                        } else {
+                            None
+                        }
                     })
                     // TODO: Don't allocate
                     .collect::<Vec<_>>()
@@ -128,6 +135,7 @@ impl State {
 
     fn useful_transitions(&self, goal: &Self) -> TransitionIter {
         let mut result = Vec::default();
+        // TODO: Filter out invalid transitions (which would lose references)
         // TODO: No need to enumerate all cases of writing to an Unspecified, one
         // should be sufficient.
 

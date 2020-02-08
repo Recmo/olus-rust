@@ -1,7 +1,11 @@
 use super::Value;
 use crate::{BitVec, Set};
 use serde::{Deserialize, Serialize};
-use std::{convert::TryInto, slice::Iter as SliceIter};
+use std::{
+    convert::TryInto,
+    fmt::{self, Display},
+    slice::Iter as SliceIter,
+};
 
 // `u8` mostly for compatibility with dynasm
 #[derive(
@@ -76,6 +80,7 @@ impl State {
                 }
             }
         }
+        // TODO: This does not correctly discount cyclical references.
         for alloc in &self.allocations {
             for val in alloc {
                 if let Reference { index, .. } = val {
@@ -239,8 +244,59 @@ impl State {
             _ => None,
         }
     }
+
+    pub(crate) fn get_mut_reference(&mut self, reg: Register, offset: isize) -> Option<&mut Value> {
+        match self.get_register(reg) {
+            Value::Reference {
+                index,
+                offset: roffset,
+            } => {
+                let alloc = self.allocations.get_mut(index)?;
+                let offset: usize = (offset + roffset).try_into().ok()?;
+                alloc.0.get_mut(offset)
+            }
+            _ => None,
+        }
+    }
 }
 
+impl Display for State {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for i in 0..=7 {
+            write!(f, "    r{:<2} = {:18}", i, format!("{}", self.registers[i]))?;
+            writeln!(
+                f,
+                "  r{:<2} = {:<18}",
+                i + 8,
+                format!("{}", self.registers[i + 8])
+            )?;
+        }
+        writeln!(
+            f,
+            "    CF  = {:4}   PF  = {:4}   AF  = {:4}   ZF  = {:4}",
+            format!("{}", self.flags[0]),
+            format!("{}", self.flags[1]),
+            format!("{}", self.flags[2]),
+            format!("{}", self.flags[3]),
+        )?;
+        writeln!(
+            f,
+            "    SF  = {:4}   DF  = {:4}   OF  = {:4}",
+            format!("{}", self.flags[4]),
+            format!("{}", self.flags[5]),
+            format!("{}", self.flags[6]),
+        )?;
+        for (i, alloc) in self.allocations.iter().enumerate() {
+            write!(f, "       {}: {:18}", i, format!("{}", alloc.0[0]));
+            for value in alloc.iter().skip(1) {
+                write!(f, "        {:18}", format!("{}", value));
+            }
+        }
+
+        // TODO: Flags + memory
+        Ok(())
+    }
+}
 impl<'a> IntoIterator for &'a Allocation {
     type IntoIter = SliceIter<'a, Value>;
     type Item = &'a Value;
