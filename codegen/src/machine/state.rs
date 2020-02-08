@@ -47,11 +47,11 @@ pub(crate) enum StateIteratorIndex<'a> {
 }
 
 impl Allocation {
-    fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.0.len()
     }
 
-    fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
+    pub(crate) fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
         self.into_iter()
     }
 }
@@ -70,7 +70,7 @@ impl State {
         for val in &self.registers {
             if let Reference { index, .. } = val {
                 if let Some(mut bit) = seen.get_mut(*index) {
-                    *bit = false;
+                    *bit = true;
                 } else {
                     return false;
                 }
@@ -80,7 +80,7 @@ impl State {
             for val in alloc {
                 if let Reference { index, .. } = val {
                     if let Some(mut bit) = seen.get_mut(*index) {
-                        *bit = false;
+                        *bit = true;
                     } else {
                         return false;
                     }

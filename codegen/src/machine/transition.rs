@@ -2,7 +2,6 @@ use super::{Allocation, Register, State, Value};
 use crate::OffsetAssembler;
 use dynasmrt::DynasmApi;
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
 
 // TODO: Explore exotic instructions that can potentially accomplish the same
 // in fewer bytes/cycles:
@@ -49,7 +48,7 @@ impl Transition {
         use Value::*;
         match *self {
             Set { dest, .. } => true,
-            Copy { dest, source } => state.get_register(dest).is_specified(),
+            Copy { dest, source } => state.get_register(source).is_specified(),
             Swap { dest, source } => {
                 state.get_register(dest).is_specified() || state.get_register(source).is_specified()
             }
@@ -84,6 +83,7 @@ impl Transition {
     pub(crate) fn apply(&self, state: &mut State) {
         use Transition::*;
         use Value::*;
+        dbg!(&state, self);
         debug_assert!(self.applies(state));
         match *self {
             Set { dest, value } => state.registers[dest.as_u8() as usize] = Literal(value),
@@ -198,9 +198,9 @@ impl Transition {
 // fn heuristic_distance(&self, other: &MachineState) -> usize {}
 // }
 
+#[cfg(test)]
 mod test {
     use super::*;
-    use crate::machine::{State, Value};
 
     #[test]
     fn test_set_size() {
