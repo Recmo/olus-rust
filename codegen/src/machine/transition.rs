@@ -1,4 +1,4 @@
-use super::State;
+use super::{State, Value};
 use crate::{
     allocator::{Allocator, Bump},
     BitVec, OffsetAssembler,
@@ -8,7 +8,7 @@ use dynasmrt::{DynasmApi, SimpleAssembler};
 use itertools::Itertools;
 use pathfinding::directed::{astar::astar, fringe::fringe, idastar::idastar};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet as Set;
+use std::{collections::HashSet as Set, convert::TryInto};
 
 pub(crate) type Reg = u8;
 
@@ -27,13 +27,13 @@ pub(crate) enum Transition {
     Read {
         dest:   Reg,
         source: Reg,
-        offset: usize,
+        offset: isize,
     },
     /// Write register `source` into `[dest + offset]`
     Write {
         dest:   Reg,
-        offset: Reg,
-        source: usize,
+        offset: isize,
+        source: Reg,
     },
     /// Allocate empty `Reference` of size `size` in register `dest`
     Alloc { dest: Reg, size: usize },
@@ -41,17 +41,74 @@ pub(crate) enum Transition {
     Drop { dest: Reg },
 }
 
+impl State {
+    fn valid_reg(reg: Reg) -> bool {
+        reg < 16
+    }
+
+    fn resolve_read(&self, reg: Reg, offset: isize) -> Option<Value> {
+        match self.registers.get(reg as usize)? {
+            Value::Reference {
+                index,
+                offset: roffset,
+            } => {
+                let alloc = self.allocations.get(*index)?;
+                let offset: usize = (offset + roffset).try_into().ok()?;
+                alloc.0.get(offset).map(|a| *a)
+            }
+            _ => None,
+        }
+    }
+}
+
 impl Transition {
     pub(crate) fn applies(&self, state: &mut State) -> bool {
+        // TODO: Does not check if it overwrites the a last Reference. We could do
+        // this quickly by tracking reference counts in Allocations. This is also
+        // a good foundation for deferred reference counting, once we implement that.
         use Transition::*;
+        use Value::*;
         match self {
-            Set { dest, .. } => (*dest as usize) < state.registers.len(),
+            Set { dest, .. } => State::valid_reg(*dest),
             Copy { dest, source } => {
-                (*dest as usize) < state.registers.len()
-                    && (*source as usize) < state.registers.len()
+                State::valid_reg(*dest)
+                    && State::valid_reg(*source)
                     && state.registers[*source as usize].is_specified()
             }
-            _ => unimplemented!(),
+            Swap { dest, source } => {
+                State::valid_reg(*dest)
+                    && State::valid_reg(*source)
+                    && (state.registers[*dest as usize].is_specified()
+                        || state.registers[*source as usize].is_specified())
+            }
+            Read {
+                dest,
+                source,
+                offset,
+            } => {
+                State::valid_reg(*dest)
+                    && match state.resolve_read(*source, *offset) {
+                        Some(val) => val.is_specified(),
+                        None => false,
+                    }
+            }
+            Write {
+                dest,
+                source,
+                offset,
+            } => {
+                State::valid_reg(*source)
+                    && state.registers[*source as usize].is_specified()
+                    && state.resolve_read(*source, *offset).is_some()
+            }
+            Alloc { dest, size } => State::valid_reg(*dest) && *size > 0,
+            Drop { dest } => {
+                State::valid_reg(*dest)
+                    && match state.registers[*dest as usize] {
+                        Reference { .. } => true,
+                        _ => false,
+                    }
+            }
         }
     }
 
@@ -117,7 +174,7 @@ impl Transition {
                         // Dynamically emit opcode with REX.W
                         // Eventhough it doesn't matter for size, using 32-bit
                         // zero extending helps performance on some processors.
-                        d => dynasm!(asm; xor Rd(d as u8), Rd(d as u8)),
+                        d => dynasm!(asm; xor Rd(d), Rd(d)),
                     }
                 } else if *value <= u32::max_value() as u64 {
                     match *dest {
@@ -130,24 +187,24 @@ impl Transition {
                         5 => dynasm!(asm; mov r5d, DWORD *value as i32),
                         6 => dynasm!(asm; mov r6d, DWORD *value as i32),
                         7 => dynasm!(asm; mov r7d, DWORD *value as i32),
-                        d => dynasm!(asm; mov Rd(d as u8), DWORD *value as i32),
+                        d => dynasm!(asm; mov Rd(d), DWORD *value as i32),
                     }
                 } else {
-                    dynasm!(asm; mov Rq(*dest as u8), QWORD *value as i64);
+                    dynasm!(asm; mov Rq(*dest), QWORD *value as i64);
                 }
             }
             Copy { dest, source } => {
                 if dest != source {
                     // TODO: Can avoid REX.W for <8 reg?
                     // TODO: Could use Rd if we know source is 32 bit
-                    dynasm!(asm; mov Rq(*dest as u8), Rq(*source as u8));
+                    dynasm!(asm; mov Rq(*dest), Rq(*source));
                 }
             }
             Swap { dest, source } => {
                 if dest != source {
                     // TODO: Can avoid REX.W for <8 reg?
                     // TODO: Swap order of arguments?
-                    dynasm!(asm; xchg Rq(*dest as u8), Rq(*source as u8));
+                    dynasm!(asm; xchg Rq(*dest), Rq(*source));
                 }
             }
             Read {
@@ -156,7 +213,7 @@ impl Transition {
                 offset,
             } => {
                 let offset = 8 * offset;
-                dynasm!(asm; mov Rq(*dest as u8), QWORD [Rq(*source as u8) + offset as i32]);
+                dynasm!(asm; mov Rq(*dest), QWORD [Rq(*source) + offset as i32]);
             }
             Write {
                 dest,
@@ -164,14 +221,16 @@ impl Transition {
                 source,
             } => {
                 let offset = 8 * offset;
-                dynasm!(asm; mov QWORD [Rq(*dest as u8) + offset as i32], Rq(*source as u8));
+                dynasm!(asm; mov QWORD [Rq(*dest) + offset as i32], Rq(*source));
             }
             Alloc { dest, size } => {
                 // TODO: ram_start as allocator member
                 // TODO: Take a generic Allocator as argument
                 Bump::alloc(asm, 0x3000, *dest as usize, *size);
             }
-            Drop { .. } => unimplemented!(),
+            Drop { dest } => {
+                Bump::drop(asm, *dest as usize);
+            }
         }
     }
 }

@@ -31,7 +31,7 @@ pub(crate) enum Flag {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
-pub(crate) struct Allocation(Vec<Value>);
+pub(crate) struct Allocation(pub(crate) Vec<Value>);
 
 #[derive(Clone, Debug)]
 pub(crate) struct StateIterator<'a> {
