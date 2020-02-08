@@ -11,14 +11,12 @@ use std::slice::Iter as SliceIter;
 // * Stack operators: PUSH, POP
 // * String operations: LODS, STOS
 
-pub(crate) type Reg = u8;
-
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
 pub(crate) struct State {
-    registers:   [Value; 16],
-    flags:       [Value; 7],
+    pub(crate) registers:   [Value; 16],
+    pub(crate) flags:       [Value; 7],
     // TODO: Implement Eq to ignore permutation of allocations.
-    allocations: Vec<Allocation>,
+    pub(crate) allocations: Vec<Allocation>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
@@ -48,6 +46,16 @@ pub(crate) enum StateIteratorIndex<'a> {
     Allocations(SliceIter<'a, Allocation>),
     Allocation(SliceIter<'a, Allocation>, SliceIter<'a, Value>),
     Done,
+}
+
+impl Allocation {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
 }
 
 impl State {
@@ -120,12 +128,87 @@ impl State {
 
     /// A goal is reachable if it contains a subset of our symbols.
     pub(crate) fn reachable(&self, goal: &Self) -> bool {
+        debug_assert!(self.is_valid());
+        debug_assert!(goal.is_valid());
+
+        // Only Symbols matter, everything else can be constructed.
         goal.symbols().is_subset(&self.symbols())
     }
 
     /// A goal is satisfied if all specified values are in place.
     pub(crate) fn satisfies(&self, goal: &Self) -> bool {
-        unimplemented!()
+        fn valsat(reference_checks: &mut Set<(usize, usize)>, ours: &Value, goal: &Value) -> bool {
+            match goal {
+                Unspecified => true,
+                Reference {
+                    index: goal_index,
+                    offset: goal_offset,
+                } => {
+                    match ours {
+                        Reference {
+                            index: our_index,
+                            offset: our_offset,
+                        } if our_offset == goal_offset => {
+                            reference_checks.insert((*our_index, *goal_index));
+                            true
+                        }
+                        _ => false,
+                    }
+                }
+                val => ours == val,
+            }
+        }
+
+        use Value::*;
+        debug_assert!(self.is_valid());
+        debug_assert!(goal.is_valid());
+
+        // Values satisfy if `goal` is unspecified, they are identical or they are
+        // references with the same offset and the allocations satisfy.
+        let mut reference_checks: Set<(usize, usize)> = Set::default();
+
+        // Check registers and flags
+        let ours = self.registers.iter().chain(self.flags.iter());
+        let theirs = goal.registers.iter().chain(goal.flags.iter());
+        if !ours
+            .zip(theirs)
+            .all(|(a, b)| valsat(&mut reference_checks, a, b))
+        {
+            return false;
+        }
+
+        // Check correspondences between allocations, taking care of recursions
+        let mut checked = Set::default();
+        let mut done = reference_checks.is_empty();
+        while !done {
+            // Swap `reference_checks` for an empty one.
+            let mut to_check = Set::default();
+            std::mem::swap(&mut reference_checks, &mut to_check);
+
+            // Check previous values of `reference_check`.
+            for (our_index, their_index) in to_check {
+                let ours = &self.allocations[our_index];
+                let theirs = &goal.allocations[their_index];
+                if ours.len() != theirs.len()
+                    || !ours
+                        .iter()
+                        .zip(theirs.iter())
+                        .all(|(a, b)| valsat(&mut reference_checks, a, b))
+                {
+                    return false;
+                }
+                checked.insert((our_index, their_index));
+            }
+
+            // Remove already checked relationships
+            reference_checks = reference_checks
+                .difference(&checked)
+                .map(|(a, b)| (*a, *b))
+                .collect();
+            done = reference_checks.is_empty();
+        }
+
+        return true;
     }
 }
 
@@ -177,7 +260,7 @@ impl<'a> Iterator for StateIterator<'a> {
                     self.next()
                 }
             }
-            Allocation(outer, iter) => {
+            Allocation(_, iter) => {
                 iter.next().or_else(|| {
                     // Satisfy borrow checker
                     if let Allocation(outer, _) = &self.index {

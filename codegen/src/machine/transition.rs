@@ -1,3 +1,4 @@
+use super::State;
 use crate::{
     allocator::{Allocator, Bump},
     BitVec, OffsetAssembler,
@@ -9,14 +10,18 @@ use pathfinding::directed::{astar::astar, fringe::fringe, idastar::idastar};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet as Set;
 
+pub(crate) type Reg = u8;
+
 /// Single instruction
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
-enum Transition {
+pub(crate) enum Transition {
     /// Set register `dest` to literal `value`
     Set { dest: Reg, value: u64 },
     /// Copy register `source` into `dest`
     Copy { dest: Reg, source: Reg },
     /// Swap contents of registers `source` and `dest`
+    /// (Swap is required in rare cases where no register can be freed. It's
+    /// also smaller.)
     Swap { dest: Reg, source: Reg },
     /// Read 64 bits from `[source + offset]` into register `dest`
     Read {
@@ -36,6 +41,26 @@ enum Transition {
     Drop { dest: Reg },
 }
 
+impl Transition {
+    pub(crate) fn applies(&self, state: &mut State) -> bool {
+        use Transition::*;
+        match self {
+            Set { dest, .. } => (*dest as usize) < state.registers.len(),
+            Copy { dest, source } => {
+                (*dest as usize) < state.registers.len()
+                    && (*source as usize) < state.registers.len()
+                    && state.registers[*source as usize].is_specified()
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn apply(&self, state: &mut State) {
+        unimplemented!()
+    }
+}
+
+// Costs
 impl Transition {
     pub(crate) fn cost(&self) -> usize {
         self.time() * 100 + self.size()
@@ -61,16 +86,16 @@ impl Transition {
             // See https://stackoverflow.com/questions/26469196/swapping-2-registers-in-8086-assembly-language16-bits
             // See https://stackoverflow.com/questions/45766444/why-is-xchg-reg-reg-a-3-micro-op-instruction-on-modern-intel-architectures
             Swap { .. } => 6,
-            Alloc { .. } => 24, // TODO: Better estimate
             Read { .. } => 6,
             Write { .. } => 12,
+            Alloc { .. } => 24, // TODO: Better estimate
+            Drop { .. } => 24,  // TODO: Better estimate
         }
     }
+}
 
-    pub(crate) fn apply(state: &mut State) {
-        unimplemented!()
-    }
-
+// Assembler
+impl Transition {
     pub(crate) fn assemble<A: DynasmApi>(&self, asm: &mut A) {
         use Transition::*;
         match self {
@@ -144,8 +169,9 @@ impl Transition {
             Alloc { dest, size } => {
                 // TODO: ram_start as allocator member
                 // TODO: Take a generic Allocator as argument
-                Bump::alloc(asm, 0x3000, *dest, *size);
+                Bump::alloc(asm, 0x3000, *dest as usize, *size);
             }
+            Drop { .. } => unimplemented!(),
         }
     }
 }
@@ -191,6 +217,7 @@ impl Transition {
 
 mod test {
     use super::*;
+    use crate::machine::{State, Value};
 
     #[test]
     fn test_set_size() {
@@ -251,31 +278,5 @@ mod test {
                 10
             );
         }
-    }
-
-    #[test]
-    fn transition_test1() {
-        use Value::*;
-        let mut start = State::default();
-        start.registers[0] = Reference(vec![Literal(1), Symbol(2)]);
-        start.registers[1] = Symbol(3);
-        let mut goal = State::default();
-        goal.registers[0] = Reference(vec![Literal(2)]);
-        goal.registers[1] = Reference(vec![Literal(3), Symbol(3)]);
-        assert_eq!(start.transition(&goal), vec![]);
-    }
-
-    #[test]
-    fn transition_test2() {
-        let mut start = State::default();
-        for i in 0..=3 {
-            start.registers[i] = Value::Symbol(i);
-        }
-        let mut goal = State::default();
-        for i in 0..=3 {
-            goal.registers[i] = Value::Symbol(3 - i);
-        }
-        dbg!(&start, &goal);
-        assert_eq!(start.transition(&goal), vec![]);
     }
 }
