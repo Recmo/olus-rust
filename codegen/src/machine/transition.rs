@@ -1,4 +1,4 @@
-use super::{State, Value};
+use super::{Allocation, State, Value};
 use crate::OffsetAssembler;
 use dynasmrt::DynasmApi;
 use serde::{Deserialize, Serialize};
@@ -107,7 +107,44 @@ impl Transition {
     }
 
     pub(crate) fn apply(&self, state: &mut State) {
-        unimplemented!()
+        use Transition::*;
+        use Value::*;
+        debug_assert!(self.applies(state));
+        match self {
+            Set { dest, value } => state.registers[*dest as usize] = Literal(*value),
+            Copy { dest, source } => {
+                state.registers[*dest as usize] = state.registers[*source as usize]
+            }
+            Swap { dest, source } => {
+                state
+                    .registers
+                    .as_mut()
+                    .swap(*dest as usize, *source as usize)
+            }
+            Read {
+                dest,
+                source,
+                offset,
+            } => state.registers[*dest as usize] = state.resolve_read(*dest, *offset).unwrap(),
+            Write {
+                dest,
+                offset,
+                source,
+            } => unimplemented!(),
+            Alloc { dest, size } => {
+                state.registers[*dest as usize] = Reference {
+                    index:  state.allocations.len(),
+                    offset: 0,
+                };
+                state.allocations.push(Allocation(vec![Unspecified; *size]));
+            }
+            Drop { .. } => {
+                // TODO: Make sure all references are gone and remaining references to other
+                // allocations have their indices correctly updated. Use swap_remove to make
+                // it easier.
+                unimplemented!()
+            }
+        }
     }
 }
 
