@@ -100,7 +100,9 @@ impl Transition {
                 source,
                 offset,
             } => {
-                state.registers[dest.as_u8() as usize] = state.get_reference(dest, offset).unwrap()
+                dbg!(&state, &self);
+                state.registers[dest.as_u8() as usize] =
+                    state.get_reference(source, offset).unwrap()
             }
             Write {
                 dest,

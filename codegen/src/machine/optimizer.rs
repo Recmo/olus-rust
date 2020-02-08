@@ -17,7 +17,10 @@ impl State {
         let (path, cost) = astar(
             self,
             |n| {
-                println!("Exploring machine state:");
+                println!(
+                    "Exploring machine state (min dist {}):",
+                    n.min_distance(goal)
+                );
                 println!("{}", n);
                 n.useful_transitions(goal)
                     .filter_map(|t| {
