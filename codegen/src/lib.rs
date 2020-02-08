@@ -37,8 +37,9 @@
 mod allocator;
 mod code;
 mod intrinsics;
-mod machine_state;
+mod machine;
 mod macho;
+mod offset_assembler;
 mod rom;
 mod utils;
 
@@ -46,8 +47,14 @@ use crate::{
     intrinsics::intrinsic,
     macho::{ram_start, rom_start, Assembly},
 };
+use bitvec;
 use parser::mir::Module;
-use std::{error::Error, path::PathBuf};
+use std::{collections::HashSet, error::Error, path::PathBuf};
+
+pub(crate) type Set<T> = HashSet<T>;
+pub(crate) type BitVec = bitvec::vec::BitVec<bitvec::order::Lsb0, u64>;
+
+pub use offset_assembler::OffsetAssembler;
 
 // For Dynasm syntax see
 // <https://censoredusername.github.io/dynasm-rs/language/langref_x64.html#register>

@@ -17,5 +17,7 @@ dynasmrt = { git = "https://github.com/CensoredUsername/dynasm-rs", branch = "de
 parser = { path = "../parser" }
 serde = { version = "1.0.104", features = ["derive"] }
 pathfinding = "2.0.3"
+itertools = "0.8.2"
+bitvec = "0.17.2"
 
 # TODO: https://github.com/CensoredUsername/dynasm-rs/issues/45
