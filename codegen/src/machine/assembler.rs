@@ -10,7 +10,7 @@ impl Transition {
             Set { dest, value } => {
                 if *value == 0 {
                     // See <https://stackoverflow.com/questions/33666617/what-is-the-best-way-to-set-a-register-to-zero-in-x86-assembly-xor-mov-or-and/33668295#33668295>
-                    match *dest {
+                    match dest.as_u8() {
                         // TODO: This clears flags too! -> Separate instruction
                         // TODO: Better encoding
                         // For registers < 8 REX.W is not required
@@ -28,7 +28,7 @@ impl Transition {
                         d => dynasm!(asm; xor Rd(d), Rd(d)),
                     }
                 } else if *value <= u32::max_value() as u64 {
-                    match *dest {
+                    match dest.as_u8() {
                         // For registers < 8 REX.W is not required
                         0 => dynasm!(asm; mov r0d, DWORD *value as i32),
                         1 => dynasm!(asm; mov r1d, DWORD *value as i32),
@@ -41,21 +41,21 @@ impl Transition {
                         d => dynasm!(asm; mov Rd(d), DWORD *value as i32),
                     }
                 } else {
-                    dynasm!(asm; mov Rq(*dest), QWORD *value as i64);
+                    dynasm!(asm; mov Rq(dest.as_u8()), QWORD *value as i64);
                 }
             }
             Copy { dest, source } => {
                 if dest != source {
                     // TODO: Can avoid REX.W for <8 reg?
                     // TODO: Could use Rd if we know source is 32 bit
-                    dynasm!(asm; mov Rq(*dest), Rq(*source));
+                    dynasm!(asm; mov Rq(dest.as_u8()), Rq(source.as_u8()));
                 }
             }
             Swap { dest, source } => {
                 if dest != source {
                     // TODO: Can avoid REX.W for <8 reg?
                     // TODO: Swap order of arguments?
-                    dynasm!(asm; xchg Rq(*dest), Rq(*source));
+                    dynasm!(asm; xchg Rq(dest.as_u8()), Rq(source.as_u8()));
                 }
             }
             Read {
@@ -64,7 +64,7 @@ impl Transition {
                 offset,
             } => {
                 let offset = 8 * offset;
-                dynasm!(asm; mov Rq(*dest), QWORD [Rq(*source) + offset as i32]);
+                dynasm!(asm; mov Rq(dest.as_u8()), QWORD [Rq(source.as_u8()) + offset as i32]);
             }
             Write {
                 dest,
@@ -72,15 +72,15 @@ impl Transition {
                 source,
             } => {
                 let offset = 8 * offset;
-                dynasm!(asm; mov QWORD [Rq(*dest) + offset as i32], Rq(*source));
+                dynasm!(asm; mov QWORD [Rq(dest.as_u8()) + offset as i32], Rq(source.as_u8()));
             }
             Alloc { dest, size } => {
                 // TODO: ram_start as allocator member
                 // TODO: Take a generic Allocator as argument
-                Bump::alloc(asm, 0x3000, *dest as usize, *size);
+                Bump::alloc(asm, 0x3000, dest.as_u8() as usize, *size);
             }
             Drop { dest } => {
-                Bump::drop(asm, *dest as usize);
+                Bump::drop(asm, dest.as_u8() as usize);
             }
         }
     }

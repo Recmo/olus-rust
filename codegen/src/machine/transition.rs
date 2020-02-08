@@ -1,107 +1,82 @@
-use super::{Allocation, State, Value};
+use super::{Allocation, Register, State, Value};
 use crate::OffsetAssembler;
 use dynasmrt::DynasmApi;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-pub(crate) type Reg = u8;
+// TODO: Explore exotic instructions that can potentially accomplish the same
+// in fewer bytes/cycles:
+// * Immediate writes 1-4 bytes
+// * Sign extended immediate loads
+// * Stack operators: PUSH, POP
+// * String operations: LODS, STOS
 
 /// Single instruction
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
 pub(crate) enum Transition {
     /// Set register `dest` to literal `value`
-    Set { dest: Reg, value: u64 },
+    Set { dest: Register, value: u64 },
     /// Copy register `source` into `dest`
-    Copy { dest: Reg, source: Reg },
+    Copy { dest: Register, source: Register },
     /// Swap contents of registers `source` and `dest`
     /// (Swap is required in rare cases where no register can be freed. It's
     /// also smaller.)
-    Swap { dest: Reg, source: Reg },
+    Swap { dest: Register, source: Register },
     /// Read 64 bits from `[source + offset]` into register `dest`
     Read {
-        dest:   Reg,
-        source: Reg,
+        dest:   Register,
+        source: Register,
         offset: isize,
     },
     /// Write register `source` into `[dest + offset]`
     Write {
-        dest:   Reg,
+        dest:   Register,
         offset: isize,
-        source: Reg,
+        source: Register,
     },
     /// Allocate empty `Reference` of size `size` in register `dest`
-    Alloc { dest: Reg, size: usize },
+    Alloc { dest: Register, size: usize },
     /// Drop the allocation referenced to
-    Drop { dest: Reg },
-}
-
-impl State {
-    fn valid_reg(reg: Reg) -> bool {
-        reg < 16
-    }
-
-    fn resolve_read(&self, reg: Reg, offset: isize) -> Option<Value> {
-        match self.registers.get(reg as usize)? {
-            Value::Reference {
-                index,
-                offset: roffset,
-            } => {
-                let alloc = self.allocations.get(*index)?;
-                let offset: usize = (offset + roffset).try_into().ok()?;
-                alloc.0.get(offset).map(|a| *a)
-            }
-            _ => None,
-        }
-    }
+    Drop { dest: Register },
 }
 
 impl Transition {
     pub(crate) fn applies(&self, state: &mut State) -> bool {
-        // TODO: Does not check if it overwrites the a last Reference. We could do
+        // TODO: Does not check if it overwrites a last Reference. We could do
         // this quickly by tracking reference counts in Allocations. This is also
         // a good foundation for deferred reference counting, once we implement that.
         use Transition::*;
         use Value::*;
-        match self {
-            Set { dest, .. } => State::valid_reg(*dest),
-            Copy { dest, source } => {
-                State::valid_reg(*dest)
-                    && State::valid_reg(*source)
-                    && state.registers[*source as usize].is_specified()
-            }
+        match *self {
+            Set { dest, .. } => true,
+            Copy { dest, source } => state.get_register(dest).is_specified(),
             Swap { dest, source } => {
-                State::valid_reg(*dest)
-                    && State::valid_reg(*source)
-                    && (state.registers[*dest as usize].is_specified()
-                        || state.registers[*source as usize].is_specified())
+                state.get_register(dest).is_specified() || state.get_register(source).is_specified()
             }
             Read {
                 dest,
                 source,
                 offset,
             } => {
-                State::valid_reg(*dest)
-                    && match state.resolve_read(*source, *offset) {
-                        Some(val) => val.is_specified(),
-                        None => false,
-                    }
+                match state.get_reference(source, offset) {
+                    Some(val) => val.is_specified(),
+                    None => false,
+                }
             }
             Write {
                 dest,
                 offset,
                 source,
             } => {
-                State::valid_reg(*source)
-                    && state.registers[*source as usize].is_specified()
-                    && state.resolve_read(*dest, *offset).is_some()
+                state.get_register(source).is_specified()
+                    && state.get_reference(dest, offset).is_some()
             }
-            Alloc { dest, size } => State::valid_reg(*dest) && *size > 0,
+            Alloc { dest, size } => size > 0,
             Drop { dest } => {
-                State::valid_reg(*dest)
-                    && match state.registers[*dest as usize] {
-                        Reference { .. } => true,
-                        _ => false,
-                    }
+                match state.get_register(dest) {
+                    Reference { .. } => true,
+                    _ => false,
+                }
             }
         }
     }
@@ -110,33 +85,35 @@ impl Transition {
         use Transition::*;
         use Value::*;
         debug_assert!(self.applies(state));
-        match self {
-            Set { dest, value } => state.registers[*dest as usize] = Literal(*value),
+        match *self {
+            Set { dest, value } => state.registers[dest.as_u8() as usize] = Literal(value),
             Copy { dest, source } => {
-                state.registers[*dest as usize] = state.registers[*source as usize]
+                state.registers[dest.as_u8() as usize] = state.get_register(source)
             }
             Swap { dest, source } => {
                 state
                     .registers
                     .as_mut()
-                    .swap(*dest as usize, *source as usize)
+                    .swap(dest.as_u8() as usize, source.as_u8() as usize)
             }
             Read {
                 dest,
                 source,
                 offset,
-            } => state.registers[*dest as usize] = state.resolve_read(*dest, *offset).unwrap(),
+            } => {
+                state.registers[dest.as_u8() as usize] = state.get_reference(dest, offset).unwrap()
+            }
             Write {
                 dest,
                 offset,
                 source,
             } => unimplemented!(),
             Alloc { dest, size } => {
-                state.registers[*dest as usize] = Reference {
+                state.registers[dest.as_u8() as usize] = Reference {
                     index:  state.allocations.len(),
                     offset: 0,
                 };
-                state.allocations.push(Allocation(vec![Unspecified; *size]));
+                state.allocations.push(Allocation(vec![Unspecified; size]));
             }
             Drop { .. } => {
                 // TODO: Make sure all references are gone and remaining references to other
@@ -228,7 +205,7 @@ mod test {
     #[test]
     fn test_set_size() {
         use Transition::*;
-        for dest in 0..=7 {
+        for dest in (0..=7).map(Register) {
             assert_eq!(Set { dest, value: 0 }.size(), 2);
             assert_eq!(Set { dest, value: 1 }.size(), 5);
             assert_eq!(
@@ -256,7 +233,7 @@ mod test {
                 10
             );
         }
-        for dest in 8..=15 {
+        for dest in (8..=15).map(Register) {
             assert_eq!(Set { dest, value: 0 }.size(), 3);
             assert_eq!(Set { dest, value: 1 }.size(), 6);
             assert_eq!(

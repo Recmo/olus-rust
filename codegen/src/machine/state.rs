@@ -1,15 +1,13 @@
 use super::Value;
-
 use crate::{BitVec, Set};
 use serde::{Deserialize, Serialize};
-use std::slice::Iter as SliceIter;
+use std::{convert::TryInto, slice::Iter as SliceIter};
 
-// TODO: Explore exotic instructions that can potentially accomplish the same
-// in fewer bytes/cycles:
-// * Immediate writes 1-4 bytes
-// * Sign extended immediate loads
-// * Stack operators: PUSH, POP
-// * String operations: LODS, STOS
+// `u8` mostly for compatibility with dynasm
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default,
+)]
+pub(crate) struct Register(pub(crate) u8);
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
 pub(crate) struct State {
@@ -55,6 +53,12 @@ impl Allocation {
 
     fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
         self.into_iter()
+    }
+}
+
+impl Register {
+    pub(crate) fn as_u8(&self) -> u8 {
+        self.0
     }
 }
 
@@ -209,6 +213,31 @@ impl State {
         }
 
         return true;
+    }
+}
+
+impl State {
+    pub(crate) fn get_register(&self, reg: Register) -> Value {
+        // `Register` can only contain valid indices
+        self.registers[reg.as_u8() as usize]
+    }
+
+    pub(crate) fn get_flag(&self, flag: Flag) -> Value {
+        self.flags[flag as usize]
+    }
+
+    pub(crate) fn get_reference(&self, reg: Register, offset: isize) -> Option<Value> {
+        match self.get_register(reg) {
+            Value::Reference {
+                index,
+                offset: roffset,
+            } => {
+                let alloc = self.allocations.get(index)?;
+                let offset: usize = (offset + roffset).try_into().ok()?;
+                alloc.0.get(offset).map(|a| *a)
+            }
+            _ => None,
+        }
     }
 }
 
