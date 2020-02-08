@@ -17,11 +17,6 @@ impl State {
         let (path, cost) = astar(
             self,
             |n| {
-                println!(
-                    "Exploring machine state (min dist {}):",
-                    n.min_distance(goal)
-                );
-                println!("{}", n);
                 n.useful_transitions(goal)
                     .filter_map(|t| {
                         // TODO: lazily compute next state?
@@ -40,8 +35,7 @@ impl State {
             |n| n.satisfies(goal),
         )
         .expect("Could not find valid transition path");
-        dbg!(&path);
-        dbg!(&cost);
+        println!("Cost: {}", cost);
 
         // Pathfinder gives a list of nodes visited, not the path taken.
         // So take all the pairs of nodes and find the best transition
@@ -238,8 +232,11 @@ mod test {
             offset: 0,
         };
         goal.allocations.push(Allocation(vec![Value::Symbol(5)]));
-        dbg!(&goal);
+        println!("Initial:\n{}", initial);
+        println!("Goal:\n{}", goal);
+        println!("Cost estimate: {}", initial.min_distance(&goal));
+
         let path = initial.transition_to(&goal);
-        dbg!(path);
+        println!("Path:\n{:?}", path);
     }
 }
