@@ -1,6 +1,6 @@
 use super::Value;
 
-use crate::BitVec;
+use crate::{BitVec, Set};
 use serde::{Deserialize, Serialize};
 use std::slice::Iter as SliceIter;
 
@@ -88,76 +88,45 @@ impl State {
             }
         }
 
-        dbg!(self
-            .registers
-            .iter()
-            .chain(self.flags.iter())
-            .chain(self.allocations.iter().flat_map(|a| a.into_iter())));
-
         // Otherwise it is valid
         true
     }
 
-    // pub(crate) fn symbols(&self) -> Set<usize> {
-    // fn recurse(set: &mut Set<usize>, value: &Value) {
-    // use Value::*;
-    // match value {
-    // Symbol(s) => {
-    // let _ = set.insert(*s);
-    // }
-    // Reference(values) => values.iter().for_each(|v| recurse(set, v)),
-    // _ => {}
-    // }
-    // }
-    // let mut result = Set::default();
-    // self.registers.iter().for_each(|v| recurse(&mut result, v));
-    // result
-    // }
-    //
-    // pub(crate) fn literals(&self) -> Set<u64> {
-    // fn recurse(set: &mut Set<u64>, value: &Value) {
-    // use Value::*;
-    // match value {
-    // Literal(l) => {
-    // let _ = set.insert(*l);
-    // }
-    // Reference(values) => values.iter().for_each(|v| recurse(set, v)),
-    // _ => {}
-    // }
-    // }
-    // let mut result = Set::default();
-    // self.registers.iter().for_each(|v| recurse(&mut result, v));
-    // result
-    // }
-    //
-    // pub(crate) fn alloc_sizes(&self) -> Set<usize> {
-    // fn recurse(set: &mut Set<usize>, value: &Value) {
-    // use Value::*;
-    // match value {
-    // Reference(v) => {
-    // let _ = set.insert(v.len());
-    // }
-    // Reference(values) => values.iter().for_each(|v| recurse(set, v)),
-    // _ => {}
-    // }
-    // }
-    // let mut result = Set::default();
-    // self.registers.iter().for_each(|v| recurse(&mut result, v));
-    // result
-    // }
-    //
-    // /// A goal is reachable if it contains a subset of our symbols.
-    // pub(crate) fn reachable(&self, goal: &Self) -> bool {
-    //     goal.symbols().is_subset(&self.symbols())
-    // }
+    pub(crate) fn symbols(&self) -> Set<usize> {
+        self.into_iter()
+            .filter_map(|val| {
+                match val {
+                    Value::Symbol(s) => Some(*s),
+                    _ => None,
+                }
+            })
+            .collect()
+    }
 
-    // /// A goal is satisfied if all specified values are in place.
-    // pub(crate) fn satisfies(&self, goal: &Self) -> bool {
-    //     self.registers
-    //         .iter()
-    //         .zip(goal.registers.iter())
-    //         .all(|(a, b)| a.satisfies(b))
-    // }
+    pub(crate) fn literals(&self) -> Set<u64> {
+        self.into_iter()
+            .filter_map(|val| {
+                match val {
+                    Value::Literal(l) => Some(*l),
+                    _ => None,
+                }
+            })
+            .collect()
+    }
+
+    pub(crate) fn alloc_sizes(&self) -> Set<usize> {
+        self.allocations.iter().map(|a| a.0.len()).collect()
+    }
+
+    /// A goal is reachable if it contains a subset of our symbols.
+    pub(crate) fn reachable(&self, goal: &Self) -> bool {
+        goal.symbols().is_subset(&self.symbols())
+    }
+
+    /// A goal is satisfied if all specified values are in place.
+    pub(crate) fn satisfies(&self, goal: &Self) -> bool {
+        unimplemented!()
+    }
 }
 
 impl<'a> IntoIterator for &'a Allocation {
