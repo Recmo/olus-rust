@@ -81,12 +81,8 @@ impl State {
                 .cost()
             }
             Reference { .. } => {
-                // Always assume we can copy.
-                Copy {
-                    dest:   reg,
-                    source: Register(0), // Assume a cheap register, could also be read
-                }
-                .cost()
+                // Allocations are computed seperately
+                0
             }
         }
     }
@@ -109,24 +105,39 @@ impl State {
                 size: 1,
             }
             .cost();
+        // dbg!(allocs);
         allocs
             + goal
                 .into_iter()
                 .enumerate()
                 .map(|(i, value)| {
-                    // TODO: Flags
-                    if i < 16 {
-                        self.register_set_cost(Register(i as u8), *value)
-                    } else {
-                        self.register_set_cost(Register(1), *value)
-                            + Transition::Write {
-                                dest:   Register(0), // TODO: RSP may be cheaper with push
-                                source: Register(1),
-                                offset: 0,
-                            }
-                            .cost()
+                    {
+                        if !value.is_specified() {
+                            0
+                        } else if i < 16 {
+                            self.register_set_cost(Register(i as u8), *value)
+                        } else if i < 23 {
+                            // TODO: Flags
+                            0
+                        } else {
+                            (0..=15)
+                                .map(Register)
+                                .map(|source| {
+                                    self.register_set_cost(source, *value)
+                                        + Transition::Write {
+                                            // TODO: RSP may be cheaper
+                                            dest: Register(0),
+                                            offset: 0,
+                                            source,
+                                        }
+                                        .cost()
+                                })
+                                .min()
+                                .unwrap()
+                        }
                     }
                 })
+                // .map(|a| dbg!(a))
                 .sum::<usize>()
     }
 
@@ -220,6 +231,46 @@ impl Iterator for TransitionIter {
 #[cfg(test)]
 mod test {
     use super::{super::Allocation, *};
+
+    #[test]
+    fn test_min_distance() {
+        use Transition::*;
+        use Value::*;
+        let mut initial = State::default();
+        initial.registers[0] = Symbol(5);
+        let mut goal = State::default();
+        goal.registers[0] = Literal(3);
+        goal.registers[1] = Reference {
+            index:  0,
+            offset: 0,
+        };
+        goal.allocations.push(Allocation(vec![Symbol(5)]));
+        println!("Initial:\n{}", initial);
+        println!("Goal:\n{}", goal);
+        assert_eq!(
+            initial.min_distance(&goal),
+            vec![
+                Alloc {
+                    dest: Register(1),
+                    size: 1,
+                },
+                Write {
+                    dest:   Register(1),
+                    offset: 0,
+                    source: Register(0),
+                },
+                Set {
+                    dest:  Register(0),
+                    value: 3,
+                }
+            ]
+            .iter()
+            .map(Transition::cost)
+            .map(|a| dbg!(a))
+            .sum()
+        );
+        println!("Cost estimate: {}", initial.min_distance(&goal));
+    }
 
     #[test]
     fn test_basic() {
