@@ -86,21 +86,35 @@ impl State {
                     // Assume it is the right one and already in place.
                     return 0;
                 } else {
-                    return Copy {
-                        // TODO: It would be more accurate to use `dest` here,
-                        // but that would be hard to undo when this thing gets
-                        // replaced by an Alloc.
-                        dest:   Register(0),
-                        source: Register(0),
-                    }
-                    .cost();
+                    return min(
+                        Copy {
+                            // TODO: It would be more accurate to use `dest` here,
+                            // but that would be hard to undo when this thing gets
+                            // replaced by an Alloc.
+                            dest:   Register(0),
+                            source: Register(0),
+                        }
+                        .cost(),
+                        Swap {
+                            dest:   Register(0),
+                            source: Register(0),
+                        }
+                        .cost(),
+                    );
                 }
             }
-            return Copy {
-                dest:   Register(0),
-                source: Register(0),
-            }
-            .cost();
+            return min(
+                Copy {
+                    dest:   Register(0),
+                    source: Register(0),
+                }
+                .cost(),
+                Swap {
+                    dest:   Register(0),
+                    source: Register(0),
+                }
+                .cost(),
+            );
         }
 
         // Compute best among a few strategies
@@ -112,7 +126,7 @@ impl State {
                 cost = min(cost, match dest {
                     None => 0,
                     Some(dest) if dest == source => 0,
-                    Some(dest) => Copy { dest, source }.cost(),
+                    Some(dest) => min(Copy { dest, source }.cost(), Swap { dest, source }.cost()),
                 });
                 if cost == 0 {
                     return cost;
@@ -190,11 +204,18 @@ impl State {
             }
             .cost();
             // Since Alloc is in place, we can undo one Copy
-            alloc_cost -= Copy {
-                dest:   Register(0),
-                source: Register(0),
-            }
-            .cost();
+            alloc_cost -= min(
+                Copy {
+                    dest:   Register(0),
+                    source: Register(0),
+                }
+                .cost(),
+                Swap {
+                    dest:   Register(0),
+                    source: Register(0),
+                }
+                .cost(),
+            );
             for goal in goal.iter() {
                 if goal.is_specified() {
                     alloc_cost += write_cost + self.register_set_cost(None, *goal);
