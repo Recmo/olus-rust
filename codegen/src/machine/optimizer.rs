@@ -74,6 +74,7 @@ impl State {
         if !value.is_specified() {
             return 0;
         }
+        // TODO: Copy does not take swaps into account
 
         // Ignore References
         // TODO: Copy for references if not in place
@@ -392,6 +393,11 @@ mod test {
         println!("Cost estimate: {}", initial.min_distance(&goal));
 
         let path = initial.transition_to(&goal);
+
+        // TODO: Function that takes initial and shortes path and tests
+        // the heuristic function for admisability and consistent
+        // <https://en.wikipedia.org/wiki/Admissible_heuristic>
+        // <https://en.wikipedia.org/wiki/Consistent_heuristic>
         println!("Path:\n{:?}", path);
     }
 }
