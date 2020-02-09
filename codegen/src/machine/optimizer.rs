@@ -87,7 +87,10 @@ impl State {
                     return 0;
                 } else {
                     return Copy {
-                        dest,
+                        // TODO: It would be more accurate to use `dest` here,
+                        // but that would be hard to undo when this thing gets
+                        // replaced by an Alloc.
+                        dest:   Register(0),
                         source: Register(0),
                     }
                     .cost();
@@ -186,7 +189,7 @@ impl State {
                 size: goal.len(),
             }
             .cost();
-            // Since Alloc is in place, we can subtract one Copy
+            // Since Alloc is in place, we can undo one Copy
             alloc_cost -= Copy {
                 dest:   Register(0),
                 source: Register(0),
