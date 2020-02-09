@@ -375,14 +375,18 @@ mod test {
         use Transition::*;
         use Value::*;
         let mut initial = State::default();
-        initial.registers[0] = Symbol(5);
+        initial.registers[0] = Symbol(1);
+        initial.registers[1] = Symbol(2);
+        initial.registers[2] = Symbol(3);
         let mut goal = State::default();
-        goal.registers[1] = Literal(3);
         goal.registers[0] = Reference {
             index:  0,
             offset: 0,
         };
-        goal.allocations.push(Allocation(vec![Symbol(5)]));
+        goal.registers[1] = Symbol(3);
+        goal.registers[2] = Literal(3);
+        goal.allocations
+            .push(Allocation(vec![Symbol(1), Symbol(2)]));
         println!("Initial:\n{}", initial);
         println!("Goal:\n{}", goal);
         println!("Cost estimate: {}", initial.min_distance(&goal));
