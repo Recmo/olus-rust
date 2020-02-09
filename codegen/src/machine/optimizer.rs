@@ -161,6 +161,7 @@ impl State {
                     alloc_cost += write_cost + self.register_set_cost(None, *goal);
                 }
             }
+            dbg!(&alloc_cost);
 
             // See if we can change an existing allocation
             for ours in &self.allocations {
@@ -168,15 +169,18 @@ impl State {
                     continue;
                 }
                 let mut change_cost = 0;
-                for (ours, goal) in ours.iter().zip(ours.iter()) {
+                for (ours, goal) in ours.iter().zip(goal.iter()) {
+                    dbg!(&ours, &goal);
                     if !goal.is_specified() || ours == goal {
                         // Good as is
                         continue;
                     }
                     change_cost += write_cost + self.register_set_cost(None, *goal);
                 }
+                dbg!(&change_cost);
                 alloc_cost = min(alloc_cost, change_cost);
             }
+            dbg!(&alloc_cost);
 
             cost += alloc_cost;
         }
@@ -304,15 +308,6 @@ mod test {
             },
         ];
 
-        // assert_eq!(
-        // initial.min_distance(&goal),
-        // optimal_path
-        // .iter()
-        // .map(Transition::cost)
-        // .map(|a| dbg!(a))
-        // .sum()
-        // );
-
         let mut state1 = initial.clone();
         optimal_path[0].apply(&mut state1);
         let mut state2 = state1.clone();
@@ -323,13 +318,29 @@ mod test {
         println!("State 2:\n{}", state2);
         println!("Goal:\n{}", goal);
 
-        dbg!(initial.min_distance(&state1));
+        // dbg!(initial.min_distance(&state1));
         dbg!(state1.min_distance(&state2));
-        dbg!(state2.min_distance(&goal));
+        // dbg!(state2.min_distance(&goal));
 
-        dbg!(initial.min_distance(&goal));
-        dbg!(state1.min_distance(&goal));
-        dbg!(state2.min_distance(&goal));
+        // dbg!(initial.min_distance(&goal));
+        // dbg!(state1.min_distance(&goal));
+        // dbg!(state2.min_distance(&goal));
+
+        // assert_eq!(
+        //     initial.min_distance(&goal),
+        //     optimal_path
+        //         .iter()
+        //         .map(Transition::cost)
+        //         .map(|a| dbg!(a))
+        //         .sum()
+        // );
+
+        // assert_eq!(initial.min_distance(&state1), 2419);
+        // assert_eq!(initial.min_distance(&state2), 3627);
+        // assert_eq!(initial.min_distance(&goal), 3932);
+        // assert_eq!(state1.min_distance(&state2), 1208);
+        // assert_eq!(state1.min_distance(&goal), 1513);
+        // assert_eq!(state2.min_distance(&goal), 305);
 
         println!("Cost estimate: {}", initial.min_distance(&goal));
     }
