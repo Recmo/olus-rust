@@ -370,7 +370,8 @@ mod test {
         println!("Cost estimate: {}", initial.min_distance(&goal));
     }
 
-    fn test_path(initial: &State, goal: &State, path: &[Transition]) {
+    /// Provided a known best bath, test heuristic admisability.
+    fn test_admisability(initial: &State, goal: &State, path: &[Transition]) {
         println!("Initial:\n{}", initial);
         println!("Goal:\n{}", goal);
 
@@ -386,6 +387,7 @@ mod test {
 
         // Check admisability: min_distance is always <= the real cost
         // <https://en.wikipedia.org/wiki/Admissible_heuristic>
+        let mut overall_admisable = true;
         for start in (0..states.len()) {
             for end in (start..states.len()) {
                 let heuristic = states[start].min_distance(&states[end]);
@@ -397,9 +399,10 @@ mod test {
                     .sum::<usize>();
                 let admisable = heuristic <= distance;
                 println!(
-                    "{} .. {}: {:7} {:7} {:5}",
+                    "{} - {}: {:7} {:7} {:5}",
                     start, end, heuristic, distance, admisable
                 );
+                overall_admisable &= admisable;
             }
 
             // Goal as target
@@ -407,13 +410,33 @@ mod test {
             let distance = path.iter().skip(start).map(|t| t.cost()).sum::<usize>();
             let admisable = heuristic <= distance;
             println!(
-                "{} .. G: {:7} {:7} {:5}",
+                "{} - G: {:7} {:7} {:5}",
                 start, heuristic, distance, admisable
             );
+            overall_admisable &= admisable;
         }
+        assert!(overall_admisable);
+    }
 
-        // Check consistency
-        // <https://en.wikipedia.org/wiki/Consistent_heuristic>
+    // Check consistency
+    // <https://en.wikipedia.org/wiki/Consistent_heuristic>
+    // Take any pair of states, iterate all neighbouring states.
+    fn test_consistency(initial: &State, goal: &State) {
+        println!("Initial:\n{}", initial);
+        println!("Goal:\n{}", goal);
+        let mindist = initial.min_distance(goal);
+        let mut overal_consistent = true;
+        println!("Heuristic distance: {}", mindist);
+        for ts in initial.useful_transitions(goal) {
+            let mut neighbor = initial.clone();
+            ts.apply(&mut neighbor);
+            let cost = ts.cost();
+            let dist = neighbor.min_distance(goal);
+            let consistent = (cost + dist) >= mindist;
+            println!(" {:5} {:7} {:7}: {:?}", consistent, ts.cost(), dist, ts);
+            overal_consistent &= consistent;
+        }
+        assert!(overal_consistent);
     }
 
     #[test]
@@ -436,6 +459,7 @@ mod test {
             .push(Allocation(vec![Symbol(1), Symbol(2)]));
 
         let path = initial.transition_to(&goal);
-        test_path(&initial, &goal, &path);
+        test_admisability(&initial, &goal, &path);
+        test_consistency(&initial, &goal);
     }
 }
