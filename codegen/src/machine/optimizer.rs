@@ -14,11 +14,19 @@ impl State {
         assert!(self.reachable(goal));
 
         // Find the optimal transition using pathfinder's A*
+        let mut nodes_explored = 0;
         let (path, cost) = astar(
             self,
             |n| {
+                println!(
+                    "Exploring from (node {}) (min_dist {}):\n{}",
+                    nodes_explored,
+                    n.min_distance(goal),
+                    n
+                );
                 n.useful_transitions(goal)
                     .filter_map(|t| {
+                        nodes_explored += 1;
                         // TODO: lazily compute next state?
                         let mut new_state = n.clone();
                         t.apply(&mut new_state);
@@ -35,6 +43,7 @@ impl State {
             |n| n.satisfies(goal),
         )
         .expect("Could not find valid transition path");
+        println!("Nodes explored: {}", nodes_explored);
         println!("Cost: {}", cost);
 
         // Pathfinder gives a list of nodes visited, not the path taken.
@@ -105,13 +114,17 @@ impl State {
                 size: 1,
             }
             .cost();
-        // dbg!(allocs);
+        dbg!(allocs);
         allocs
             + goal
                 .into_iter()
                 .enumerate()
                 .map(|(i, value)| {
                     {
+                        // Check if any allocation already has this value, if so
+                        // we return zero assuming it is already set
+                        // TODO: Need to align allocations.
+
                         if !value.is_specified() {
                             0
                         } else if i < 16 {
@@ -137,7 +150,7 @@ impl State {
                         }
                     }
                 })
-                // .map(|a| dbg!(a))
+                .map(|a| dbg!(a))
                 .sum::<usize>()
     }
 
@@ -245,44 +258,66 @@ mod test {
             offset: 0,
         };
         goal.allocations.push(Allocation(vec![Symbol(5)]));
+
+        let optimal_path = vec![
+            Alloc {
+                dest: Register(1),
+                size: 1,
+            },
+            Write {
+                dest:   Register(1),
+                offset: 0,
+                source: Register(0),
+            },
+            Set {
+                dest:  Register(0),
+                value: 3,
+            },
+        ];
+
+        // assert_eq!(
+        // initial.min_distance(&goal),
+        // optimal_path
+        // .iter()
+        // .map(Transition::cost)
+        // .map(|a| dbg!(a))
+        // .sum()
+        // );
+
+        let mut state1 = initial.clone();
+        optimal_path[0].apply(&mut state1);
+        let mut state2 = state1.clone();
+        optimal_path[1].apply(&mut state2);
+
         println!("Initial:\n{}", initial);
+        println!("State 1:\n{}", state1);
+        println!("State 2:\n{}", state2);
         println!("Goal:\n{}", goal);
-        assert_eq!(
-            initial.min_distance(&goal),
-            vec![
-                Alloc {
-                    dest: Register(1),
-                    size: 1,
-                },
-                Write {
-                    dest:   Register(1),
-                    offset: 0,
-                    source: Register(0),
-                },
-                Set {
-                    dest:  Register(0),
-                    value: 3,
-                }
-            ]
-            .iter()
-            .map(Transition::cost)
-            .map(|a| dbg!(a))
-            .sum()
-        );
-        println!("Cost estimate: {}", initial.min_distance(&goal));
+
+        // dbg!(initial.min_distance(&state1));
+        // dbg!(state1.min_distance(&state2));
+        // dbg!(state2.min_distance(&goal));
+        //
+        // dbg!(initial.min_distance(&goal));
+        // dbg!(state1.min_distance(&goal));
+        dbg!(state2.min_distance(&goal));
+
+        // println!("Cost estimate: {}", initial.min_distance(&goal));
     }
 
     #[test]
     fn test_basic() {
+        use Transition::*;
+        use Value::*;
         let mut initial = State::default();
-        initial.registers[0] = Value::Symbol(5);
+        initial.registers[0] = Symbol(5);
         let mut goal = State::default();
-        goal.registers[0] = Value::Literal(3);
-        goal.registers[1] = Value::Reference {
+        goal.registers[0] = Literal(3);
+        goal.registers[1] = Reference {
             index:  0,
             offset: 0,
         };
-        goal.allocations.push(Allocation(vec![Value::Symbol(5)]));
+        goal.allocations.push(Allocation(vec![Symbol(5)]));
         println!("Initial:\n{}", initial);
         println!("Goal:\n{}", goal);
         println!("Cost estimate: {}", initial.min_distance(&goal));
