@@ -76,6 +76,7 @@ impl State {
         }
 
         // Ignore References
+        // TODO: Copy for references if not in place
         if let Reference { .. } = value {
             return 0;
         }
@@ -120,6 +121,8 @@ impl State {
                 }
             }
         }
+
+        assert_ne!(cost, usize::max_value());
         cost
     }
 
@@ -131,6 +134,14 @@ impl State {
         // Note: this is not a perfect minimum: for example two `Set`
         // transitions with identical `value` can be more expensive than
         // a `Set` followed by `Copy`.
+
+        // Early exit with max distance if goal is unreachable.
+        if !self.reachable(goal) {
+            // Note: we can not return max, because `pathfinding` wants to add some to it.
+            // TODO: Don't emit impossible paths.
+            return usize::max_value() >> 1;
+        }
+
         let mut cost = 0;
 
         // TODO: Function to return minimal cost of constructing a value in a given
@@ -336,13 +347,14 @@ mod test {
 
     #[test]
     fn test_basic() {
+        // TODO: Seems to use r11 as temp, which suboptimal!
         use Transition::*;
         use Value::*;
         let mut initial = State::default();
         initial.registers[0] = Symbol(5);
         let mut goal = State::default();
-        goal.registers[0] = Literal(3);
-        goal.registers[1] = Reference {
+        goal.registers[1] = Literal(3);
+        goal.registers[0] = Reference {
             index:  0,
             offset: 0,
         };
