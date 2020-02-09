@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 // TODO: Track flags, offer alternatives for XOR zeroing that do not clear
 // flags.
 
+// TODO:
+// Read constant from memory?
+
 /// Single instruction
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
 pub(crate) enum Transition {
@@ -160,11 +163,13 @@ impl Transition {
     pub(crate) fn cycles(&self) -> usize {
         use Transition::*;
         // Timings are minimum (throughput) from Fog's Skylake table
-        match self {
+        match *self {
             Set { .. } => 3,
+            Copy { dest, source } if dest == source => 0,
             Copy { .. } => 3,
             // See https://stackoverflow.com/questions/26469196/swapping-2-registers-in-8086-assembly-language16-bits
             // See https://stackoverflow.com/questions/45766444/why-is-xchg-reg-reg-a-3-micro-op-instruction-on-modern-intel-architectures
+            Swap { dest, source } if dest == source => 0,
             Swap { .. } => 6,
             Read { .. } => 6,
             Write { .. } => 12,
