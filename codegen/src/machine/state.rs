@@ -287,9 +287,9 @@ impl Display for State {
             format!("{}", self.flags[6]),
         )?;
         for (i, alloc) in self.allocations.iter().enumerate() {
-            write!(f, "       {}: {:18}", i, format!("{}", alloc.0[0]));
+            writeln!(f, "       {}: {:18}", i, format!("{}", alloc.0[0]));
             for value in alloc.iter().skip(1) {
-                write!(f, "        {:18}", format!("{}", value));
+                writeln!(f, "          {:18}", format!("{}", value));
             }
         }
 
