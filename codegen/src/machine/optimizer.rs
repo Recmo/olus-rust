@@ -1,6 +1,7 @@
 use super::{Register, State, Transition, Value};
 use itertools::Itertools;
 use pathfinding::directed::astar::astar;
+use std::cmp::min;
 
 // TODO: Caches results using normalized version of the problem.
 
@@ -66,92 +67,120 @@ impl State {
         result
     }
 
-    fn register_set_cost(&self, reg: Register, value: Value) -> usize {
+    fn register_set_cost(&self, dest: Option<Register>, value: Value) -> usize {
         use Transition::*;
         use Value::*;
-        if self.get_register(reg) == value {
+        // No goal
+        if !value.is_specified() {
             return 0;
         }
-        match value {
-            Unspecified => 0,
-            // Copy from existing reg may be cheaper, should `min` over the options.
-            Literal(n) => {
-                Set {
-                    dest:  reg,
-                    value: n,
+
+        // Ignore References
+        if let Reference { .. } = value {
+            return 0;
+        }
+
+        // Compute best among a few strategies
+        let mut cost = usize::max_value();
+
+        // Try copy from registers
+        for source in (0..=15).map(Register) {
+            if value == self.get_register(source) {
+                cost = min(cost, match dest {
+                    None => 0,
+                    Some(dest) if dest == source => 0,
+                    Some(dest) => Copy { dest, source }.cost(),
+                });
+                if cost == 0 {
+                    return cost;
                 }
-                .cost()
-            }
-            Symbol(n) => {
-                Copy {
-                    dest:   reg,
-                    source: Register(0), // Assume a cheap register, could also be read
-                }
-                .cost()
-            }
-            Reference { .. } => {
-                // Allocations are computed seperately
-                0
             }
         }
+        let dest = dest.unwrap_or(Register(0));
+
+        // Try literals
+        if let Literal(value) = value {
+            cost = min(cost, Set { dest, value }.cost());
+        }
+
+        // Try copy from allocations
+        let read_cost = Read {
+            dest,
+            source: Register(0),
+            offset: 0,
+        }
+        .cost();
+        if cost <= read_cost {
+            return cost;
+        }
+        for alloc in &self.allocations {
+            for alloc_val in alloc {
+                if *alloc_val == value {
+                    return read_cost;
+                }
+            }
+        }
+        cost
     }
 
     fn min_distance(&self, goal: &Self) -> usize {
+        use Transition::*;
+        use Value::*;
         // Compute minimum distance by taking the sum of the minimum cost to set
         // each goal register from the current state.
         // Note: this is not a perfect minimum: for example two `Set`
         // transitions with identical `value` can be more expensive than
         // a `Set` followed by `Copy`.
+        let mut cost = 0;
 
-        // TODO: Delta the allocations sizes and account for Alloc + Drop
-        let allocs = goal
-            .allocations
-            .len()
-            .saturating_sub(self.allocations.len());
-        let allocs = allocs
-            * Transition::Alloc {
+        // TODO: Function to return minimal cost of constructing a value in a given
+        // register using Copy Set or Read.
+
+        // Registers
+        for (i, (ours, goal)) in self.registers.iter().zip(goal.registers.iter()).enumerate() {
+            cost += self.register_set_cost(Some(Register(i as u8)), *goal);
+        }
+        // TODO: Flags
+
+        // Allocations
+        let write_cost = Write {
+            dest:   Register(0),
+            offset: 0,
+            source: Register(0),
+        }
+        .cost();
+        for goal in &goal.allocations {
+            // Compute the cost of constructing it from scratch
+            let mut alloc_cost = Alloc {
                 dest: Register(0),
-                size: 1,
+                size: goal.len(),
             }
             .cost();
-        dbg!(allocs);
-        allocs
-            + goal
-                .into_iter()
-                .enumerate()
-                .map(|(i, value)| {
-                    {
-                        // Check if any allocation already has this value, if so
-                        // we return zero assuming it is already set
-                        // TODO: Need to align allocations.
+            for goal in goal.iter() {
+                if goal.is_specified() {
+                    alloc_cost += write_cost + self.register_set_cost(None, *goal);
+                }
+            }
 
-                        if !value.is_specified() {
-                            0
-                        } else if i < 16 {
-                            self.register_set_cost(Register(i as u8), *value)
-                        } else if i < 23 {
-                            // TODO: Flags
-                            0
-                        } else {
-                            (0..=15)
-                                .map(Register)
-                                .map(|source| {
-                                    self.register_set_cost(source, *value)
-                                        + Transition::Write {
-                                            // TODO: RSP may be cheaper
-                                            dest: Register(0),
-                                            offset: 0,
-                                            source,
-                                        }
-                                        .cost()
-                                })
-                                .min()
-                                .unwrap()
-                        }
+            // See if we can change an existing allocation
+            for ours in &self.allocations {
+                if ours.len() != goal.len() {
+                    continue;
+                }
+                let mut change_cost = 0;
+                for (ours, goal) in ours.iter().zip(ours.iter()) {
+                    if !goal.is_specified() || ours == goal {
+                        // Good as is
+                        continue;
                     }
-                })
-                .map(|a| dbg!(a))
-                .sum::<usize>()
+                    change_cost += write_cost + self.register_set_cost(None, *goal);
+                }
+                alloc_cost = min(alloc_cost, change_cost);
+            }
+
+            cost += alloc_cost;
+        }
+        cost
     }
 
     fn useful_transitions(&self, goal: &Self) -> TransitionIter {
@@ -294,15 +323,15 @@ mod test {
         println!("State 2:\n{}", state2);
         println!("Goal:\n{}", goal);
 
-        // dbg!(initial.min_distance(&state1));
-        // dbg!(state1.min_distance(&state2));
-        // dbg!(state2.min_distance(&goal));
-        //
-        // dbg!(initial.min_distance(&goal));
-        // dbg!(state1.min_distance(&goal));
+        dbg!(initial.min_distance(&state1));
+        dbg!(state1.min_distance(&state2));
         dbg!(state2.min_distance(&goal));
 
-        // println!("Cost estimate: {}", initial.min_distance(&goal));
+        dbg!(initial.min_distance(&goal));
+        dbg!(state1.min_distance(&goal));
+        dbg!(state2.min_distance(&goal));
+
+        println!("Cost estimate: {}", initial.min_distance(&goal));
     }
 
     #[test]
