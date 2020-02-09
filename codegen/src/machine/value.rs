@@ -32,3 +32,23 @@ impl Display for Value {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use proptest::{
+        arbitrary::any,
+        prop_oneof,
+        strategy::{Just, LazyTupleUnion, Strategy},
+    };
+
+    fn arb_value(num_allocations: usize) -> impl Strategy<Value = Value> {
+        prop_oneof![
+            Just(Value::Unspecified),
+            any::<u64>().prop_map(Value::Literal),
+            any::<usize>().prop_map(Value::Symbol),
+            (0..num_allocations, any::<isize>())
+                .prop_map(|(index, offset)| Value::Reference { index, offset }),
+        ]
+    }
+}

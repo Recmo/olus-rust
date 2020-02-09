@@ -5,11 +5,6 @@ use std::cmp::min;
 
 // TODO: Caches results using normalized version of the problem.
 
-struct TransitionIter {
-    trans: Vec<Transition>,
-    index: usize,
-}
-
 impl State {
     fn transition_to(&self, goal: &Self) -> Vec<Transition> {
         assert!(self.reachable(goal));
@@ -26,6 +21,7 @@ impl State {
                 //     n
                 // );
                 n.useful_transitions(goal)
+                    .into_iter()
                     .filter_map(|t| {
                         nodes_explored += 1;
                         // TODO: lazily compute next state?
@@ -244,7 +240,7 @@ impl State {
         cost
     }
 
-    fn useful_transitions(&self, goal: &Self) -> TransitionIter {
+    fn useful_transitions(&self, goal: &Self) -> Vec<Transition> {
         let mut result = Vec::default();
         // TODO: Filter out invalid transitions (which would lose references)
         // TODO: No need to enumerate all cases of writing to an Unspecified, one
@@ -314,26 +310,14 @@ impl State {
             }
         }
 
-        TransitionIter {
-            trans: result,
-            index: 0,
-        }
-    }
-}
-
-impl Iterator for TransitionIter {
-    type Item = Transition;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let value = self.trans.get(self.index);
-        self.index += 1;
-        value.map(|a| *a)
+        result
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::{super::Allocation, *};
+    use proptest::strategy::Strategy;
 
     #[test]
     fn test_min_distance() {
@@ -348,7 +332,6 @@ mod test {
             offset: 0,
         };
         goal.allocations.push(Allocation(vec![Symbol(5)]));
-
         let optimal_path = vec![
             Alloc {
                 dest: Register(1),
@@ -364,34 +347,11 @@ mod test {
                 value: 3,
             },
         ];
-
-        let mut state1 = initial.clone();
-        optimal_path[0].apply(&mut state1);
-        let mut state2 = state1.clone();
-        optimal_path[1].apply(&mut state2);
-
-        println!("Initial:\n{}", initial);
-        println!("State 1:\n{}", state1);
-        println!("State 2:\n{}", state2);
-        println!("Goal:\n{}", goal);
-
-        assert_eq!(
-            initial.min_distance(&goal),
-            optimal_path
-                .iter()
-                .map(Transition::cost)
-                .map(|a| dbg!(a))
-                .sum()
-        );
-
-        assert_eq!(initial.min_distance(&state1), 2419);
-        assert_eq!(initial.min_distance(&state2), 3627);
-        assert_eq!(initial.min_distance(&goal), 3932);
-        assert_eq!(state1.min_distance(&state2), 1208);
-        assert_eq!(state1.min_distance(&goal), 1513);
-        assert_eq!(state2.min_distance(&goal), 305);
-
-        println!("Cost estimate: {}", initial.min_distance(&goal));
+        let optimal_cost = optimal_path.iter().map(|t| t.cost()).sum::<usize>();
+        test_admisability(&initial, &goal, &optimal_path);
+        let path = initial.transition_to(&goal);
+        let path_cost = optimal_path.iter().map(|t| t.cost()).sum::<usize>();
+        assert_eq!(optimal_cost, path_cost);
     }
 
     /// Provided a known best bath, test heuristic admisability.
