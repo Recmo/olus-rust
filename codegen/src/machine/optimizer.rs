@@ -78,7 +78,25 @@ impl State {
         // Ignore References
         // TODO: Copy for references if not in place
         if let Reference { .. } = value {
-            return 0;
+            // Assume the reference is available somewhere. If wo do Alloc,
+            // we need to subtract this cost.
+            if let Some(dest) = dest {
+                if let Reference { .. } = self.get_register(dest) {
+                    // Assume it is the right one and already in place.
+                    return 0;
+                } else {
+                    return Copy {
+                        dest,
+                        source: Register(0),
+                    }
+                    .cost();
+                }
+            }
+            return Copy {
+                dest:   Register(0),
+                source: Register(0),
+            }
+            .cost();
         }
 
         // Compute best among a few strategies
@@ -165,6 +183,12 @@ impl State {
             let mut alloc_cost = Alloc {
                 dest: Register(0),
                 size: goal.len(),
+            }
+            .cost();
+            // Since Alloc is in place, we can subtract one Copy
+            alloc_cost -= Copy {
+                dest:   Register(0),
+                source: Register(0),
             }
             .cost();
             for goal in goal.iter() {

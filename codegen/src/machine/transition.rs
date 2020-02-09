@@ -10,6 +10,13 @@ use serde::{Deserialize, Serialize};
 // * Stack operators: PUSH, POP
 // * String operations: LODS, STOS
 
+// TODO: Explore transforming literals into other literals:
+// * Mov8/16/32
+// * Add/Sub/Xor
+
+// TODO: Track flags, offer alternatives for XOR zeroing that do not clear
+// flags.
+
 /// Single instruction
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
 pub(crate) enum Transition {
@@ -128,7 +135,12 @@ impl Transition {
 // Costs
 impl Transition {
     pub(crate) fn cost(&self) -> usize {
-        self.time() * 100 + self.size()
+        // TODO: In practice, we either want the absolute smallest or absolute
+        // fastest code. The middle ground doesn't really exist anymore. The only
+        // other trade-off is compile time, which we don't care about at the moment.
+
+        // Optimize for size, with cycles as a potential tie-breaker
+        self.size() * 10000 + self.cycles()
     }
 
     /// Code size in bytes
@@ -139,10 +151,13 @@ impl Transition {
     }
 
     /// Run time in clock cycles ⨉ 12
+    /// Note: It's impossible to be perfectly accurate in time, because it
+    /// utimately depends on the non-disclosed internal details of the
+    /// specific processor in use. Provided here is a very rough estimate.
     /// See <https://www.agner.org/optimize/instruction_tables.pdf>
     // TODO: Account for dependency chains
     // TODO: Measure and calibrate these numbers
-    pub(crate) fn time(&self) -> usize {
+    pub(crate) fn cycles(&self) -> usize {
         use Transition::*;
         // Timings are minimum (throughput) from Fog's Skylake table
         match self {
