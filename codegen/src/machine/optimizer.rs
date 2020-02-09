@@ -399,5 +399,9 @@ mod test {
         // <https://en.wikipedia.org/wiki/Admissible_heuristic>
         // <https://en.wikipedia.org/wiki/Consistent_heuristic>
         println!("Path:\n{:?}", path);
+
+        for ts in path {
+            println!("{}: {:?}", ts.cost(), &ts);
+        }
     }
 }

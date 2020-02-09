@@ -24,6 +24,8 @@ impl Allocator for Bump {
         // Read current free memory pointer
         // Add size to free memory pointer
         if size <= 127 {
+            // TODO: Avoid REX when reg < 8.
+            // TODO: BYTE operand for ADD
             dynasm!(asm
                 ; mov Rd(reg as u8), DWORD [ram_start as i32]
                 ; add DWORD [ram_start as i32], BYTE size as i32); // ?
