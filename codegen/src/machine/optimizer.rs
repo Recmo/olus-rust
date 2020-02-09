@@ -19,12 +19,12 @@ impl State {
         let (path, cost) = astar(
             self,
             |n| {
-                println!(
-                    "Exploring from (node {}) (min_dist {}):\n{}",
-                    nodes_explored,
-                    n.min_distance(goal),
-                    n
-                );
+                // println!(
+                //     "Exploring from (node {}) (min_dist {}):\n{}",
+                //     nodes_explored,
+                //     n.min_distance(goal),
+                //     n
+                // );
                 n.useful_transitions(goal)
                     .filter_map(|t| {
                         nodes_explored += 1;
@@ -370,6 +370,52 @@ mod test {
         println!("Cost estimate: {}", initial.min_distance(&goal));
     }
 
+    fn test_path(initial: &State, goal: &State, path: &[Transition]) {
+        println!("Initial:\n{}", initial);
+        println!("Goal:\n{}", goal);
+
+        // Reconstruct intermediate states
+        let mut states = vec![initial.clone()];
+        for ts in path {
+            let mut next = states.last().unwrap().clone();
+            ts.apply(&mut next);
+            states.push(next);
+            println!(" {:7}: {:?}", ts.cost(), ts);
+        }
+        assert!(states.last().unwrap().satisfies(&goal));
+
+        // Check admisability: min_distance is always <= the real cost
+        // <https://en.wikipedia.org/wiki/Admissible_heuristic>
+        for start in (0..states.len()) {
+            for end in (start..states.len()) {
+                let heuristic = states[start].min_distance(&states[end]);
+                let distance = path
+                    .iter()
+                    .skip(start)
+                    .take(end - start)
+                    .map(|t| t.cost())
+                    .sum::<usize>();
+                let admisable = heuristic <= distance;
+                println!(
+                    "{} .. {}: {:7} {:7} {:5}",
+                    start, end, heuristic, distance, admisable
+                );
+            }
+
+            // Goal as target
+            let heuristic = states[start].min_distance(&goal);
+            let distance = path.iter().skip(start).map(|t| t.cost()).sum::<usize>();
+            let admisable = heuristic <= distance;
+            println!(
+                "{} .. G: {:7} {:7} {:5}",
+                start, heuristic, distance, admisable
+            );
+        }
+
+        // Check consistency
+        // <https://en.wikipedia.org/wiki/Consistent_heuristic>
+    }
+
     #[test]
     fn test_basic() {
         // TODO: Seems to use r11 as temp, which suboptimal!
@@ -388,20 +434,8 @@ mod test {
         goal.registers[2] = Literal(3);
         goal.allocations
             .push(Allocation(vec![Symbol(1), Symbol(2)]));
-        println!("Initial:\n{}", initial);
-        println!("Goal:\n{}", goal);
-        println!("Cost estimate: {}", initial.min_distance(&goal));
 
         let path = initial.transition_to(&goal);
-
-        // TODO: Function that takes initial and shortes path and tests
-        // the heuristic function for admisability and consistent
-        // <https://en.wikipedia.org/wiki/Admissible_heuristic>
-        // <https://en.wikipedia.org/wiki/Consistent_heuristic>
-        println!("Path:\n{:?}", path);
-
-        for ts in path {
-            println!("{}: {:?}", ts.cost(), &ts);
-        }
+        test_path(&initial, &goal, &path);
     }
 }

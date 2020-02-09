@@ -19,5 +19,6 @@ serde = { version = "1.0.104", features = ["derive"] }
 pathfinding = "2.0.3"
 itertools = "0.8.2"
 bitvec = "0.17.2"
+proptest = "0.9.5"
 
 # TODO: https://github.com/CensoredUsername/dynasm-rs/issues/45
