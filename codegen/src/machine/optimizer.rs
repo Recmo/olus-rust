@@ -237,6 +237,9 @@ impl State {
             // Add to total cost
             cost += alloc_cost;
         }
+
+        // TODO: Drops
+
         cost
     }
 

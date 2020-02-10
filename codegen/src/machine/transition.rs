@@ -131,19 +131,17 @@ impl Transition {
                 // it easier.
                 if let Reference { index, .. } = state.get_register(dest) {
                     // Remove Allocation and Reference
-                    state.registers[dest.as_u8() as usize] = Value::Unspecified;
                     state.allocations.swap_remove(index);
-
-                    // Replace all indices `swap` with `index`
-                    // Any remaining references to `index` are an error!
                     let new = index;
                     let old = state.allocations.len();
+
+                    // Replace all indices `swap` with `index`
+                    // Any References to `index` become Unspecified
                     for val in state.registers.iter_mut() {
                         if let Reference { index, .. } = val {
                             if *index == new {
-                                panic!("Drop requires the reference to be unique.");
-                            }
-                            if *index == old {
+                                *val = Value::Unspecified
+                            } else if *index == old {
                                 *index = new;
                             }
                         }
@@ -152,9 +150,8 @@ impl Transition {
                         for val in alloc.0.iter_mut() {
                             if let Reference { index, .. } = val {
                                 if *index == new {
-                                    panic!("Drop requires the reference to be unique.");
-                                }
-                                if *index == old {
+                                    *val = Value::Unspecified
+                                } else if *index == old {
                                     *index = new;
                                 }
                             }

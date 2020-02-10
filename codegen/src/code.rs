@@ -1,6 +1,7 @@
 use crate::{
     allocator::{Allocator, Bump},
     intrinsic,
+    machine::{Allocation, State, Value},
     macho::CODE_START,
     rom,
     utils::{
@@ -39,48 +40,12 @@ enum Source {
     None,
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug, Default)]
-struct MachineState {
-    registers: [Option<Expression>; 16],
-    // TODO: Flags (carry, parity, adjust, zero, sign, direction, overflow)
-}
-
-impl MachineState {
-    fn from_symbols(symbols: &[usize]) -> MachineState {
-        assert!(symbols.len() <= 16);
-        let mut registers = [None; 16];
-        for (index, symbol) in symbols.iter().enumerate() {
-            registers[index] = Some(Expression::Symbol(*symbol));
-        }
-        MachineState { registers }
-    }
-
-    fn from_expressions(exprs: &[Expression]) -> MachineState {
-        assert!(exprs.len() <= 16);
-        let mut registers = [None; 16];
-        for (index, expr) in exprs.iter().enumerate() {
-            registers[index] = Some(expr.clone());
-        }
-        MachineState { registers }
-    }
-
-    fn satisfies(&self, other: &MachineState) -> bool {
-        for (left, right) in self.registers.iter().zip(other.registers.iter()) {
-            if right.is_some() && left != right {
-                return false;
-            }
-        }
-        true
-    }
-}
-
 struct Context<'a> {
     module:    &'a Module,
     code:      &'a Layout,
     rom:       &'a rom::Layout,
     ram_start: usize,
     asm:       &'a mut Assembler,
-    state:     MachineState,
 }
 
 impl<'a> Context<'a> {
@@ -92,128 +57,114 @@ impl<'a> Context<'a> {
             .find(|decl| decl.1.procedure[0] == symbol)
     }
 
-    fn closure(&self) -> Vec<usize> {
-        if let Some(Expression::Symbol(s)) = self.state.registers[0] {
-            if let Some((_, decl)) = self.find_decl(s) {
-                // TODO: Make sure this is actually a closure meant for the
-                // current context and not something temporary.
-                decl.closure.clone()
-            } else {
-                vec![]
-            }
-        } else {
-            vec![]
-        }
-    }
+    // fn closure(&self) -> Vec<usize> {
+    //     if let Some(Expression::Symbol(s)) = self.state.registers[0] {
+    //         if let Some((_, decl)) = self.find_decl(s) {
+    //             // TODO: Make sure this is actually a closure meant for the
+    //             // current context and not something temporary.
+    //             decl.closure.clone()
+    //         } else {
+    //             vec![]
+    //         }
+    //     } else {
+    //         vec![]
+    //     }
+    // }
 
-    pub(crate) fn find(&self, expr: &Expression) -> Source {
-        use Expression::*;
-        use Source::*;
-        match expr {
-            Number(i) => Constant(self.module.numbers[*i]),
-            Literal(i) => Constant(self.rom.strings[*i] as u64),
-            Import(i) => Constant(self.rom.imports[*i] as u64),
-            Symbol(i) => {
-                // Check registers
-                if let Some(i) = self
-                    .state
-                    .registers
-                    .iter()
-                    .position(|e| e == &Some(expr.clone()))
-                {
-                    return Register(i);
-                }
+    // pub(crate) fn find(&self, expr: &Expression) -> Source {
+    //     use Expression::*;
+    //     use Source::*;
+    //     match expr {
+    //         Number(i) => Constant(self.module.numbers[*i]),
+    //         Literal(i) => Constant(self.rom.strings[*i] as u64),
+    //         Import(i) => Constant(self.rom.imports[*i] as u64),
+    //         Symbol(i) => {
+    //             // Check registers
+    //             if let Some(i) = self
+    //                 .state
+    //                 .registers
+    //                 .iter()
+    //                 .position(|e| e == &Some(expr.clone()))
+    //             {
+    //                 return Register(i);
+    //             }
 
-                // Check current closure
-                if let Some(i) = self.closure().iter().position(|s| s == i) {
-                    return Closure(i);
-                }
+    //             // Check current closure
+    //             if let Some(i) = self.closure().iter().position(|s| s == i) {
+    //                 return Closure(i);
+    //             }
 
-                // New closure
-                if let Some((i, decl)) = self.find_decl(*i) {
-                    if decl.closure.is_empty() {
-                        // Empty closures are constant allocated
-                        Constant(self.rom.closures[i] as u64)
-                    } else {
-                        // We need to allocate a closure
-                        Alloc(i)
-                    }
-                } else {
-                    None
-                }
-            }
-        }
-    }
+    //             // New closure
+    //             if let Some((i, decl)) = self.find_decl(*i) {
+    //                 if decl.closure.is_empty() {
+    //                     // Empty closures are constant allocated
+    //                     Constant(self.rom.closures[i] as u64)
+    //                 } else {
+    //                     // We need to allocate a closure
+    //                     Alloc(i)
+    //                 }
+    //             } else {
+    //                 None
+    //             }
+    //         }
+    //     }
+    // }
 }
 
-fn code_transition(ctx: &mut Context<'_>, target: &MachineState) {
-    // Reserved registers currently
-    assert_eq!(target.registers[14], None);
-    assert_eq!(target.registers[15], None);
-    // Rough order:
-    // * Drop registers? (depends on type)
-    // * Shuffle registers? (Can also have duplicates and drops)
-    // * Create closures
-    // * Load closure values
-    // * Load all the literals
-    // * Copy registers
-
-    // Iterate target right to left
-    // TODO: Strategic ordering
-    // TODO: Fix overwriting of values that are required later
-    for (i, expr) in target.registers.iter().enumerate().rev() {
-        if let Some(expr) = expr {
-            match ctx.find(expr) {
-                Source::Constant(n) => assemble_literal(ctx.asm, i, n),
-                Source::Register(j) => assemble_mov(ctx.asm, i, j),
-                Source::Closure(j) => assemble_read(ctx.asm, i, j),
-                Source::Alloc(j) => {
-                    let decl = &ctx.module.declarations[j];
-
-                    // Closure: [<code pointer>, <value>, ...]
-                    let size = 8 * (1 + decl.closure.len());
-
-                    // HACK: We construct in r14 and move in the end.
-
-                    // Allocate space for the closure and put pointer in reg
-                    // This immediately overwrites the register, but at this point it is still only
-                    // a partially assembled closure!
-                    Bump::alloc(ctx.asm, ctx.ram_start, 14, size);
-                    ctx.state.registers[14] = Some(expr.clone());
-
-                    // Write code pointer
-                    assemble_write_const(ctx.asm, 14, 0, ctx.code.declarations[j] as u64);
-
-                    // Write values
-                    for (j, sym) in decl.closure.iter().enumerate() {
-                        let offset = 8 * (1 + j);
-                        match ctx.find(&Expression::Symbol(*sym)) {
-                            Source::Constant(_) => panic!("Constants don't go into closures."),
-                            Source::Register(k) => assemble_write_reg(ctx.asm, 14, offset, k),
-                            Source::Closure(k) => assemble_write_read(ctx.asm, 14, offset, k),
-                            Source::Alloc(_) => panic!("Nested closures unsupported!"),
-                            Source::None => panic!("Could not find value for closure."),
-                        }
-                    }
-
-                    // Move to real destination reg
-                    assemble_mov(ctx.asm, i, 14);
-                }
-                Source::None => panic!("Don't know how to create {:?}", expr),
-            };
-            ctx.state.registers[i] = Some(expr.clone());
-        }
+fn closure_val(ctx: &mut Context<'_>, symbol: usize) -> Vec<Value> {
+    let (index, decl) = ctx.find_decl(symbol).expect("Expected closure symbol");
+    let mut result = vec![Value::Literal(ctx.code.declarations[index] as u64)];
+    for symbol in &decl.closure {
+        result.push(Value::Symbol(*symbol));
     }
-
-    // Make sure we did things right, current state
-    assert!(ctx.state.satisfies(target));
+    result
 }
 
 fn assemble_decl(ctx: &mut Context<'_>, decl: &Declaration) {
+    // Initial state has one closure expanded
+    let mut initial = State::default();
+    initial.registers[0] = Value::Reference {
+        index:  0,
+        offset: 0,
+    };
+    for (i, symbol) in decl.procedure.iter().enumerate().skip(1) {
+        initial.registers[i] = Value::Symbol(*symbol);
+    }
+    initial
+        .allocations
+        .push(Allocation(closure_val(ctx, decl.procedure[0])));
+    println!("Initial:\n{}", initial);
+    let available = initial.symbols();
+
+    // Goal state is the call with closures expanded as needed
+    let mut goal = State::default();
+    for (i, expr) in decl.call.iter().enumerate() {
+        goal.registers[i] = match *expr {
+            Expression::Literal(i) => Value::Literal(ctx.rom.strings[i] as u64),
+            Expression::Number(n) => Value::Literal(ctx.module.numbers[n]),
+            Expression::Import(i) => Value::Literal(ctx.rom.imports[i] as u64),
+            Expression::Symbol(s) => {
+                if available.contains(&s) {
+                    Value::Symbol(s)
+                } else {
+                    let val = Value::Reference {
+                        index:  goal.allocations.len(),
+                        offset: 0,
+                    };
+                    // TODO: recursively allocate closures
+                    goal.allocations.push(Allocation(closure_val(ctx, s)));
+                    val
+                }
+            }
+        };
+    }
+    println!("Goal:\n{}", goal);
+
     // Transition into the correct machine state
-    ctx.state = MachineState::from_symbols(&decl.procedure);
-    let target = MachineState::from_expressions(&decl.call);
-    code_transition(ctx, &target);
+    let path = initial.transition_to(&goal);
+    for transition in path {
+        transition.assemble(ctx.asm);
+    }
 
     // Call the closure
     dynasm!(ctx.asm
@@ -265,7 +216,6 @@ pub(crate) fn compile(
             rom,
             ram_start,
             asm: &mut asm,
-            state: MachineState::default(),
         };
 
         // Declarations
