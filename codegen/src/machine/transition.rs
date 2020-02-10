@@ -173,7 +173,8 @@ impl Transition {
         // other trade-off is compile time, which we don't care about at the moment.
 
         // Optimize for size, with cycles as a potential tie-breaker
-        self.size() * 10000 + self.cycles()
+        // Add one to always have a non-zero cost
+        1 + self.size() * 10000 + self.cycles()
     }
 
     /// Code size in bytes
