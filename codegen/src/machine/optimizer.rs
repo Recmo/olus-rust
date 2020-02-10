@@ -6,7 +6,7 @@ use std::cmp::min;
 // TODO: Caches results using normalized version of the problem.
 
 impl State {
-    fn transition_to(&self, goal: &Self) -> Vec<Transition> {
+    pub(crate) fn transition_to(&self, goal: &Self) -> Vec<Transition> {
         assert!(self.reachable(goal));
 
         // Find the optimal transition using pathfinder's A*
@@ -158,7 +158,7 @@ impl State {
         cost
     }
 
-    fn min_distance(&self, goal: &Self) -> usize {
+    pub(crate) fn min_distance(&self, goal: &Self) -> usize {
         use Transition::*;
         use Value::*;
         // Compute minimum distance by taking the sum of the minimum cost to set
@@ -307,6 +307,13 @@ impl State {
         for size in goal.alloc_sizes().into_iter() {
             for dest in (0..=15).map(Register) {
                 result.push(Transition::Alloc { dest, size });
+            }
+        }
+
+        // Drop an existing reference
+        for dest in (0..=15).map(Register) {
+            if let Value::Reference { .. } = self.get_register(dest) {
+                result.push(Transition::Drop { dest });
             }
         }
 

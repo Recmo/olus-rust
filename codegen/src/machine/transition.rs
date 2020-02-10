@@ -125,11 +125,44 @@ impl Transition {
                 };
                 state.allocations.push(Allocation(vec![Unspecified; size]));
             }
-            Drop { .. } => {
+            Drop { dest } => {
                 // TODO: Make sure all references are gone and remaining references to other
                 // allocations have their indices correctly updated. Use swap_remove to make
                 // it easier.
-                unimplemented!()
+                if let Reference { index, .. } = state.get_register(dest) {
+                    // Remove Allocation and Reference
+                    state.registers[dest.as_u8() as usize] = Value::Unspecified;
+                    state.allocations.swap_remove(index);
+
+                    // Replace all indices `swap` with `index`
+                    // Any remaining references to `index` are an error!
+                    let new = index;
+                    let old = state.allocations.len();
+                    for val in state.registers.iter_mut() {
+                        if let Reference { index, .. } = val {
+                            if *index == new {
+                                panic!("Drop requires the reference to be unique.");
+                            }
+                            if *index == old {
+                                *index = new;
+                            }
+                        }
+                    }
+                    for alloc in state.allocations.iter_mut() {
+                        for val in alloc.0.iter_mut() {
+                            if let Reference { index, .. } = val {
+                                if *index == new {
+                                    panic!("Drop requires the reference to be unique.");
+                                }
+                                if *index == old {
+                                    *index = new;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    panic!("Can only Drop a Reference.")
+                }
             }
         }
     }
