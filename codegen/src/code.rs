@@ -75,17 +75,21 @@ fn closure_val(ctx: &mut Context<'_>, symbol: usize) -> Vec<Value> {
 
 fn assemble_decl(ctx: &mut Context<'_>, decl: &Declaration) {
     // Initial state has one closure expanded
+    // TODO: Don't expand constant closures
     let mut initial = State::default();
-    initial.registers[0] = Value::Reference {
-        index:  0,
-        offset: 0,
-    };
-    for (i, symbol) in decl.procedure.iter().enumerate().skip(1) {
+    for (i, symbol) in decl.procedure.iter().enumerate() {
         initial.registers[i] = Value::Symbol(*symbol);
     }
-    initial
-        .allocations
-        .push(Allocation(closure_val(ctx, decl.procedure[0])));
+    if !decl.closure.is_empty() {
+        initial
+            .allocations
+            .push(Allocation(closure_val(ctx, decl.procedure[0])));
+        initial.registers[0] = Value::Reference {
+            index:  0,
+            offset: 0,
+        };
+    }
+
     println!("Initial:\n{}", initial);
     let available = initial.symbols();
 
