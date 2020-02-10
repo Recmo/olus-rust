@@ -13,12 +13,8 @@ pub(crate) struct Layout {
 
 impl Layout {
     pub(crate) fn dummy(module: &Module) -> Layout {
-        const DUMMY: usize = i32::max_value() as usize;
-        Layout {
-            closures: vec![DUMMY; module.declarations.len()],
-            imports:  vec![DUMMY; module.imports.len()],
-            strings:  vec![DUMMY; module.strings.len()],
-        }
+        const DUMMY_ROM_START: usize = 1 << 20; // 1G
+        layout(module, DUMMY_ROM_START)
     }
 }
 
