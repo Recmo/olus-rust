@@ -265,7 +265,6 @@ impl State {
         // TODO: Filter out invalid transitions (which would lose references)
         // TODO: No need to enumerate all cases of writing to an Unspecified, one
         // should be sufficient.
-        // TODO: Nearly always no need to write to a place that is already correct.
 
         // Generate Set transitions for each goal literal and register.
         for value in goal.literals().into_iter() {
@@ -283,12 +282,18 @@ impl State {
 
             // Generate moves and swaps between registers
             for dest in (0..=15).map(Register) {
+                let dest_val = self.get_register(dest);
+                if dest_val == goal.get_register(dest) {
+                    // Don't overwrite already correct values
+                    continue;
+                }
+
                 // Copy to any reg
                 if source != dest {
                     result.push(Transition::Copy { dest, source });
                 }
                 // Swap two regs
-                if source < dest && self.get_register(dest).is_specified() {
+                if source < dest && dest_val.is_specified() {
                     result.push(Transition::Swap { dest, source });
                 }
             }
@@ -302,8 +307,12 @@ impl State {
                 let values = &self.allocations[index];
                 for offset in (0..values.len()).map(|n| (n as isize) - base_offset) {
                     for dest in (0..=15).map(Register) {
+                        let dest_val = self.get_register(dest);
+
                         // Read if there is something there
-                        if self.get_reference(source, offset).unwrap().is_specified() {
+                        if dest_val != goal.get_register(dest)
+                            && self.get_reference(source, offset).unwrap().is_specified()
+                        {
                             result.push(Transition::Read {
                                 dest,
                                 source,
@@ -312,7 +321,9 @@ impl State {
                         }
 
                         // Writes have source and dest flipped
-                        if self.get_register(dest).is_specified() {
+                        if dest_val.is_specified() {
+                            // TODO: Don't overwrite already correct values
+
                             result.push(Transition::Write {
                                 dest: source,
                                 offset,
