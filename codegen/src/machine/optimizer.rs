@@ -209,6 +209,7 @@ impl State {
             source: Register(0),
         }
         .cost();
+        let mut reused = 0;
         for goal in &goal.allocations {
             // Compute the cost of constructing it from scratch
             let mut alloc_cost = Alloc {
@@ -236,6 +237,7 @@ impl State {
             }
 
             // See if we can change an existing allocation
+            let mut reuse_cost = usize::max_value();
             for ours in &self.allocations {
                 if ours.len() != goal.len() {
                     continue;
@@ -248,14 +250,18 @@ impl State {
                     }
                     change_cost += write_cost + self.register_set_cost(None, *goal);
                 }
-                alloc_cost = min(alloc_cost, change_cost);
+                reuse_cost = min(reuse_cost, change_cost);
             }
 
-            // Add to total cost
-            cost += alloc_cost;
+            // Add best option to total cost
+            if reuse_cost <= alloc_cost {
+                cost += reuse_cost;
+                reused += 1;
+            } else {
+                cost += alloc_cost;
+            }
         }
-
-        // TODO: Drops
+        cost += (self.allocations.len() - reused) * Drop { dest: Register(0) }.cost();
 
         cost
     }
