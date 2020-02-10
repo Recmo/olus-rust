@@ -65,7 +65,7 @@ pub use offset_assembler::OffsetAssembler;
 
 pub fn codegen(module: &Module, destination: &PathBuf) -> Result<(), Box<dyn Error>> {
     let dummy_code_layout = code::Layout::dummy(module);
-    let dummy_rom_layout = rom::layout(module, 0);
+    let dummy_rom_layout = rom::Layout::dummy(module);
     // TODO: ram_start and ram_layout
 
     // First pass with dummy layout

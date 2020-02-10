@@ -22,12 +22,12 @@ pub(crate) struct Layout {
 
 impl Layout {
     pub(crate) fn dummy(module: &Module) -> Layout {
-        const DUMMY_SIZE: usize = 1 << 10;
+        const DUMMY_SIZE: usize = 1 << 10; // ~ 1kiB of code
         let declarations: Vec<usize> = (0..module.declarations.len())
             .map(|i| CODE_START + i * DUMMY_SIZE)
             .collect();
         let imports: Vec<usize> = (0..module.imports.len())
-            .map(|i| declarations.last().unwrap() + i * DUMMY_SIZE)
+            .map(|i| declarations.last().unwrap() + (i + 1) * DUMMY_SIZE)
             .collect();
         Layout {
             declarations,
@@ -115,6 +115,7 @@ fn assemble_decl(ctx: &mut Context<'_>, decl: &Declaration) {
 
     // Transition into the correct machine state
     let path = initial.transition_to(&goal);
+    println!("Path: {:?}", path);
     for transition in path {
         transition.assemble(ctx.asm);
     }

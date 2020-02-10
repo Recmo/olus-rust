@@ -13,7 +13,7 @@ pub(crate) struct Layout {
 
 impl Layout {
     pub(crate) fn dummy(module: &Module) -> Layout {
-        const DUMMY_ROM_START: usize = 1 << 20; // 1G
+        const DUMMY_ROM_START: usize = 1 << 20; // ~ 1MiB of code
         layout(module, DUMMY_ROM_START)
     }
 }
