@@ -209,45 +209,6 @@ impl Transition {
     }
 }
 
-// impl MachineState {
-// fn from_symbols(symbols: &[usize]) -> MachineState {
-// assert!(symbols.len() <= 16);
-// let mut registers = [None; 16];
-// for (index, symbol) in symbols.iter().enumerate() {
-// registers[index] = Some(Expression::Symbol(*symbol));
-// }
-// MachineState { registers }
-// }
-//
-// fn from_expressions(exprs: &[Expression]) -> MachineState {
-// assert!(exprs.len() <= 16);
-// let mut registers = [None; 16];
-// for (index, expr) in exprs.iter().enumerate() {
-// registers[index] = Some(expr.clone());
-// }
-// MachineState { registers }
-// }
-//
-// fn satisfies(&self, other: &MachineState) -> bool {
-// for (left, right) in self.registers.iter().zip(other.registers.iter()) {
-// if right.is_some() && left != right {
-// return false;
-// }
-// }
-// true
-// }
-//
-// Heuristic distance from self to other.
-//
-// If `self` contains all the values necessary to construct `other`, it
-// will return the number of set other registers that do not match
-// the self.
-//
-// If `other` can not be constructed from `self` it will return
-// `usize::max_value()`
-// fn heuristic_distance(&self, other: &MachineState) -> usize {}
-// }
-
 #[cfg(test)]
 mod test {
     use super::*;

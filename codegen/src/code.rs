@@ -56,59 +56,6 @@ impl<'a> Context<'a> {
             .enumerate()
             .find(|decl| decl.1.procedure[0] == symbol)
     }
-
-    // fn closure(&self) -> Vec<usize> {
-    //     if let Some(Expression::Symbol(s)) = self.state.registers[0] {
-    //         if let Some((_, decl)) = self.find_decl(s) {
-    //             // TODO: Make sure this is actually a closure meant for the
-    //             // current context and not something temporary.
-    //             decl.closure.clone()
-    //         } else {
-    //             vec![]
-    //         }
-    //     } else {
-    //         vec![]
-    //     }
-    // }
-
-    // pub(crate) fn find(&self, expr: &Expression) -> Source {
-    //     use Expression::*;
-    //     use Source::*;
-    //     match expr {
-    //         Number(i) => Constant(self.module.numbers[*i]),
-    //         Literal(i) => Constant(self.rom.strings[*i] as u64),
-    //         Import(i) => Constant(self.rom.imports[*i] as u64),
-    //         Symbol(i) => {
-    //             // Check registers
-    //             if let Some(i) = self
-    //                 .state
-    //                 .registers
-    //                 .iter()
-    //                 .position(|e| e == &Some(expr.clone()))
-    //             {
-    //                 return Register(i);
-    //             }
-
-    //             // Check current closure
-    //             if let Some(i) = self.closure().iter().position(|s| s == i) {
-    //                 return Closure(i);
-    //             }
-
-    //             // New closure
-    //             if let Some((i, decl)) = self.find_decl(*i) {
-    //                 if decl.closure.is_empty() {
-    //                     // Empty closures are constant allocated
-    //                     Constant(self.rom.closures[i] as u64)
-    //                 } else {
-    //                     // We need to allocate a closure
-    //                     Alloc(i)
-    //                 }
-    //             } else {
-    //                 None
-    //             }
-    //         }
-    //     }
-    // }
 }
 
 fn closure_val(ctx: &mut Context<'_>, symbol: usize) -> Vec<Value> {
