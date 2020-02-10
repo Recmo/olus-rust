@@ -275,6 +275,11 @@ impl State {
         // Generate Set transitions for each goal literal and register.
         for value in goal.literals().into_iter() {
             for dest in (0..=15).map(Register) {
+                let dest_val = self.get_register(dest);
+                if dest_val == goal.get_register(dest) {
+                    // Don't overwrite already correct values
+                    continue;
+                }
                 result.push(Transition::Set { dest, value });
             }
         }
