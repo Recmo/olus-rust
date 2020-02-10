@@ -186,7 +186,7 @@ impl Transition {
 
     /// Run time in clock cycles ⨉ 12
     /// Note: It's impossible to be perfectly accurate in time, because it
-    /// utimately depends on the non-disclosed internal details of the
+    /// ultimately depends on the non-disclosed internal details of the
     /// specific processor in use. Provided here is a very rough estimate.
     /// See <https://www.agner.org/optimize/instruction_tables.pdf>
     // TODO: Account for dependency chains

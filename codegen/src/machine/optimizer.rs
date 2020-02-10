@@ -27,7 +27,7 @@ impl State {
                         // TODO: lazily compute next state?
                         let mut new_state = n.clone();
                         t.apply(&mut new_state);
-                        if new_state.is_valid() {
+                        if new_state.is_valid() && new_state.reachable(goal) {
                             Some((new_state, t.cost()))
                         } else {
                             None
@@ -60,6 +60,11 @@ impl State {
             }
             result.push(best.expect("Could not reproduce path"));
         }
+
+        // Test admisability criterion along path
+        // #[cfg(debug)]
+        // test::test_admisability(self, goal, &result);
+
         result
     }
 
@@ -169,15 +174,27 @@ impl State {
 
         // Early exit with max distance if goal is unreachable.
         if !self.reachable(goal) {
-            // Note: we can not return max, because `pathfinding` wants to add some to it.
-            // TODO: Don't emit impossible paths.
-            return usize::max_value() >> 1;
+            return usize::max_value();
         }
 
         let mut cost = 0;
+        // let mut constructed: Set<Value> = Set::default();
 
-        // TODO: Function to return minimal cost of constructing a value in a given
-        // register using Copy Set or Read.
+        // TODO: Values only have to be Set or Read once, after that they can be Copy'd
+        // A Copy is not always better though.
+
+        // let get_cost = |dest, val| {
+        // let construct_cost = ;
+        // if constructed.contains(val) {
+        // if let Some(dest) = dest {
+        // min(construct_cost, Copy { dest, source }.cost())
+        // } else {
+        // 0
+        // }
+        // } else {
+        // self.register_set_cost(dest, *goal);
+        // }
+        // };
 
         // Registers
         for (i, (ours, goal)) in self.registers.iter().zip(goal.registers.iter()).enumerate() {
@@ -248,6 +265,7 @@ impl State {
         // TODO: Filter out invalid transitions (which would lose references)
         // TODO: No need to enumerate all cases of writing to an Unspecified, one
         // should be sufficient.
+        // TODO: Nearly always no need to write to a place that is already correct.
 
         // Generate Set transitions for each goal literal and register.
         for value in goal.literals().into_iter() {
@@ -435,7 +453,6 @@ mod test {
 
     #[test]
     fn test_basic() {
-        // TODO: Seems to use r11 as temp, which suboptimal!
         use Transition::*;
         use Value::*;
         let mut initial = State::default();
@@ -451,6 +468,36 @@ mod test {
         goal.registers[2] = Literal(3);
         goal.allocations
             .push(Allocation(vec![Symbol(1), Symbol(2)]));
+
+        let path = initial.transition_to(&goal);
+        test_admisability(&initial, &goal, &path);
+        test_consistency(&initial, &goal);
+    }
+
+    #[test]
+    fn test_basic2() {
+        use Transition::*;
+        use Value::*;
+        let mut initial = State::default();
+        initial.registers[0] = Symbol(0);
+        initial.registers[1] = Symbol(1);
+        initial.registers[2] = Symbol(2);
+        initial.registers[3] = Symbol(3);
+        initial.registers[4] = Symbol(4);
+
+        let mut goal = State::default();
+        goal.registers[0] = Literal(0x0000000000100058);
+        goal.registers[1] = Symbol(1);
+        goal.registers[2] = Symbol(2);
+        goal.registers[3] = Reference {
+            index:  0,
+            offset: 0,
+        };
+        goal.allocations.push(Allocation(vec![
+            Literal(0x0000000000100058),
+            Symbol(3),
+            Symbol(4),
+        ]));
 
         let path = initial.transition_to(&goal);
         test_admisability(&initial, &goal, &path);

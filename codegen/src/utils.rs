@@ -1,6 +1,8 @@
 use dynasm::dynasm;
 use dynasmrt::{x64::Assembler, DynasmApi};
 
+// TODO: NOP generator <https://stackoverflow.com/a/36361832/4696352>
+
 pub(crate) fn assemble_read4(code: &mut Assembler, reg: usize, address: usize) {
     assert!(address <= (u32::max_value() as usize));
     dynasm!(code; mov Rd(reg as u8), DWORD [address as i32]);
