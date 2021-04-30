@@ -317,6 +317,7 @@ impl State {
             {
                 let values = &self.allocations[index];
                 for offset in (0..values.len()).map(|n| (n as isize) - base_offset) {
+                    // TODO: Check if goal is specified?
                     for dest in (0..=15).map(Register) {
                         let dest_val = self.get_register(dest);
 
@@ -334,7 +335,6 @@ impl State {
                         // Writes have source and dest flipped
                         if dest_val.is_specified() {
                             // TODO: Don't overwrite already correct values
-
                             result.push(Transition::Write {
                                 dest: source,
                                 offset,

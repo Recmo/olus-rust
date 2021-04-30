@@ -79,7 +79,7 @@ named!(pub literal_number<&str, ast::Expression>,
     )
 );
 
-named!(pub closure<&str, ast::Statement>, 
+named!(pub closure<&str, ast::Statement>,
     map!(
         tuple!(
             many1!(map!(pair!(binder, opt!(tokens::whitespace_line)), |(a, _b)| a)),
@@ -90,7 +90,7 @@ named!(pub closure<&str, ast::Statement>,
     )
 );
 
-named!(pub call<&str, ast::Statement>, 
+named!(pub call<&str, ast::Statement>,
     map!(
         many1!(map!(pair!(expression, opt!(tokens::whitespace_line)), |(a, _b)| a)),
         ast::Statement::Call

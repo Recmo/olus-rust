@@ -2,7 +2,7 @@
 name = "parser"
 description = "The Oluś programming language."
 version = "0.1.0"
-authors = ["Remco Bloemen <remco@0x.org>"]
+authors = ["Remco Bloemen <remco@wicked.ventures>"]
 edition = "2018"
 readme = "../README.md"
 repository = "https://github.com/Recmo/olus-rust"
@@ -11,15 +11,20 @@ categories = ["parser"]
 license = "MIT"
 
 [dependencies]
-log = "0.4.8"
+tracing = "0.1.25"
+thiserror = "1.0"
+logos = "0.12"
+codespan = "0.11.1"
+codespan-reporting = "0.11.1"
+
 unic = "0.9.0"
 unic-ucd-ident = { version = "0.9.0", features = ["pattern"] }
 caseless = "0.2.1"
 nom = "4.2.3"
 serde = { version = "1.0.104", features = ["derive"] }
 bincode = "1.2.1"
-memmap = "0.7.0"
 bitvec = "0.17.2"
 
 [dev-dependencies]
 pretty_assertions = "0.6.1"
+indoc = "1.0.3"

@@ -66,3 +66,4 @@ Reading list:
 * <https://paperhub.s3.amazonaws.com/24842c95fb1bc5d7c5da2ec735e106f0.pdf>
 * <http://compilers.cs.uni-saarland.de/papers/lkh15_cgo.pdf>
 * <https://os.phil-opp.com/allocator-designs/>
+* <https://news.ycombinator.com/item?id=22372847>
