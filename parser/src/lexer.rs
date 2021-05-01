@@ -2,7 +2,7 @@
 #![allow(clippy::non_ascii_literal)] // Syntax is non-ascii
 
 use logos::Logos;
-use std::cmp::Ordering;
+use std::{cmp::Ordering, str::FromStr};
 
 pub type Span = std::ops::Range<usize>;
 
@@ -14,6 +14,7 @@ pub enum Token<'source> {
     LineEnd,
     Identifier(&'source str),
     String(&'source str),
+    Number(u64),
     Error(Error, Span),
 }
 
@@ -23,6 +24,7 @@ pub enum Error {
     IndentationError,
     StringError,
     StringUnterminated,
+    NumberError,
 }
 
 pub struct Lexer<'source> {
@@ -54,6 +56,9 @@ enum RawToken {
 
     #[token("“")]
     StringStart,
+
+    #[regex(r"[0-9]+")]
+    Number,
 
     #[error]
     Error,
@@ -115,6 +120,13 @@ impl<'source> Lexer<'source> {
             }
         }
     }
+
+    fn parse_number(&mut self) -> Token<'source> {
+        u64::from_str(self.lexer.slice()).map_or_else(
+            |_| Token::Error(Error::NumberError, self.lexer.span()),
+            Token::Number,
+        )
+    }
 }
 
 impl<'source> Iterator for Lexer<'source> {
@@ -151,6 +163,7 @@ impl<'source> Iterator for Lexer<'source> {
                         RawToken::Identifier => Some(Token::Identifier(self.lexer.slice())),
                         RawToken::Error => Some(Token::Error(Error::TokenError, self.lexer.span())),
                         RawToken::StringStart => Some(self.parse_string()),
+                        RawToken::Number => Some(self.parse_number()),
                         _ => unreachable!(),
                     }
                 } else {

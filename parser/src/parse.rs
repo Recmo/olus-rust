@@ -14,20 +14,8 @@ impl<'source> Parser<'source> {
         }
     }
 
-    pub fn parse(&mut self) {
-        while let Some(token) = self.lexer.next() {
-            match token {
-                Token::BlockStart => {
-                    dbg!(self.parse_block());
-                }
-                Token::LineStart => {
-                    dbg!(self.parse_line());
-                }
-                _ => {
-                    println!("Invalid token {:?}", token);
-                }
-            }
-        }
+    pub fn parse(&mut self) -> Statement {
+        self.parse_block()
     }
 
     fn print_diagnostic(&self, error: Error, span: Span) {
@@ -88,6 +76,9 @@ impl<'source> Parser<'source> {
                 Token::String(str) => {
                     line.push(Expression::Literal(str.to_owned()));
                 }
+                Token::Number(n) => {
+                    line.push(Expression::Number(n));
+                }
                 Token::LineEnd => break,
                 Token::Error(error, span) => self.print_diagnostic(error, span),
                 _ => {
@@ -135,8 +126,15 @@ impl<'source> Parser<'source> {
                 Token::String(str) => {
                     line.push(Expression::Literal(str.to_owned()));
                 }
+                Token::Number(n) => {
+                    line.push(Expression::Number(n));
+                }
+                Token::BlockStart | Token::BlockEnd | Token::LineStart | Token::LineEnd => {
+                    // Ignore lines.
+                    // TODO: Make sure they don't confuse indentation state
+                }
                 _ => {
-                    println!("Unexpected line token {:?}", token);
+                    println!("Unexpected paren token {:?}", token);
                 }
             }
         }
@@ -162,18 +160,109 @@ impl<'source> Parser<'source> {
 
 fn parse(source: &str) -> Statement {
     let mut parser = Parser::new(source);
-    parser.parse();
-
-    Statement::Block(vec![])
+    parser.parse()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
+
+    fn wrap_expr(expr: Expression) -> Statement {
+        Statement::Block(vec![Statement::Call(vec![expr])])
+    }
 
     #[test]
-    fn test_parse() {
-        let source = include_str!("../../simple.olus");
-        parse(source);
+    fn parse_galactose() {
+        assert_eq!(
+            parse("(\na\n\nb\n) "),
+            wrap_expr(Expression::Galactose(vec![
+                Expression::Reference(None, "a".to_string()),
+                Expression::Reference(None, "b".to_string()),
+            ]))
+        );
+        assert_eq!(
+            parse("(a_“He + (l)lo”+ (b “*”)) "),
+            wrap_expr(Expression::Galactose(vec![
+                Expression::Reference(None, "a_".to_string()),
+                Expression::Literal("He + (l)lo".to_string()),
+                Expression::Reference(None, "+".to_string()),
+                Expression::Galactose(vec![
+                    Expression::Reference(None, "b".to_string()),
+                    Expression::Literal("*".to_string()),
+                ])
+            ]))
+        );
     }
+
+    #[test]
+    fn parse_fructose() {
+        assert_eq!(
+            parse("(↦)"),
+            wrap_expr(Expression::Fructose(vec![], vec![]))
+        );
+        assert_eq!(
+            parse("(↦f a b)"),
+            wrap_expr(Expression::Fructose(vec![], vec![
+                Expression::Reference(None, "f".to_string()),
+                Expression::Reference(None, "a".to_string()),
+                Expression::Reference(None, "b".to_string()),
+            ]))
+        );
+        assert_eq!(
+            parse("(a b ↦ f)"),
+            wrap_expr(Expression::Fructose(
+                vec![Binder(None, "a".to_string()), Binder(None, "b".to_string()),],
+                vec![Expression::Reference(None, "f".to_string()),]
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_closure() {
+        assert_eq!(
+            parse("fact m n ↦ f a b \nc"),
+            Statement::Block(vec![Statement::Closure(
+                vec![
+                    Binder(None, "fact".to_string()),
+                    Binder(None, "m".to_string()),
+                    Binder(None, "n".to_string()),
+                ],
+                vec![
+                    Expression::Reference(None, "f".to_string()),
+                    Expression::Reference(None, "a".to_string()),
+                    Expression::Reference(None, "b".to_string()),
+                ]
+            ),
+            Statement::Call(vec![Expression::Reference(None, "c".to_string())])
+            ])
+        );
+    }
+
+    // #[test]
+    // fn parse_block() {
+    //     fn call(a: &str) -> Statement {
+    //         Statement::Call(vec![Expression::Reference(None, a.to_string())])
+    //     }
+    //     assert_eq!(
+    //         parse("a\nb\nc\n"),
+    //         Statement::Block(vec![call("a"), call("b"), call("c")])
+    //     );
+    //     assert_eq!(
+    //         parse("a\nb\n\n\nc\n"),
+    //         Statement::Block(vec![call("a"), call("b"), call("c")])
+    //     );
+    //     assert_eq!(
+    //         parse("  a\n  b\n  c\n T"),
+    //         Statement::Block(vec![call("a"), call("b"), call("c")])
+    //     );
+    //     assert_eq!(
+    //         parse(" a\n  b1\n\n  b2\n c\nT"),
+    //         Statement::Block(vec![
+    //             call("a"),
+    //             Statement::Block(vec![call("b1"), call("b2")]),
+    //             call("c")
+    //         ])
+    //     );
+    // }
 }
