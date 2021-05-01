@@ -9,6 +9,7 @@ pub struct Binder(pub Option<usize>, pub String);
 // spot which is linked to one implicit binding spot.
 // Galactose is a call statement in parenthesis.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
+#[allow(clippy::use_self)] // 'Self' confuses Serde
 pub enum Expression {
     Reference(Option<usize>, String),
     Fructose(Vec<Binder>, Vec<Expression>),
@@ -19,6 +20,7 @@ pub enum Expression {
 
 // Glucose is a closure with an empty Call followed by a Call on the next line.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Debug)]
+#[allow(clippy::clippy::use_self)] // 'Self' confuses Serde
 pub enum Statement {
     Closure(Vec<Binder>, Vec<Expression>),
     Call(Vec<Expression>),

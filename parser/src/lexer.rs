@@ -4,28 +4,17 @@
 use logos::Logos;
 use std::cmp::Ordering;
 
+pub type Span = std::ops::Range<usize>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token<'source> {
-    /// Start of a scoping (indentation) block
     BlockStart,
-
-    /// End of a scoping (indentation) block
     BlockEnd,
-
-    /// Start of a line
     LineStart,
-
-    /// End of a line
     LineEnd,
-
-    /// Identifier
     Identifier(&'source str),
-
-    /// String literal
     String(&'source str),
-
-    /// Lexer error
-    Error(Error),
+    Error(Error, Span),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -96,6 +85,10 @@ impl<'source> Lexer<'source> {
         }
     }
 
+    pub fn source(&self) -> &'source str {
+        self.lexer.source()
+    }
+
     const fn indentation_length(str: &str) -> usize {
         // Indentation length currently equals number of characters
         str.len()
@@ -117,8 +110,8 @@ impl<'source> Lexer<'source> {
                     }
                 }
                 Some(LiteralString::Characters) => {}
-                Some(LiteralString::Error) => break Token::Error(Error::StringError), /* lexer.span() */
-                None => break Token::Error(Error::StringUnterminated), // (0..lexer.span().end)
+                Some(LiteralString::Error) => break Token::Error(Error::StringError, lexer.span()),
+                None => break Token::Error(Error::StringUnterminated, 0..lexer.span().end),
             }
         }
     }
@@ -156,7 +149,7 @@ impl<'source> Iterator for Lexer<'source> {
                     self.next_token = None;
                     match token {
                         RawToken::Identifier => Some(Token::Identifier(self.lexer.slice())),
-                        RawToken::Error => Some(Token::Error(Error::TokenError)),
+                        RawToken::Error => Some(Token::Error(Error::TokenError, self.lexer.span())),
                         RawToken::StringStart => Some(self.parse_string()),
                         _ => unreachable!(),
                     }
@@ -175,7 +168,7 @@ impl<'source> Iterator for Lexer<'source> {
                                 // this is an error.
                                 // TODO: Ideally we recover with [Error, BlockEnd, BlockStart]
                                 // for consistency.
-                                Some(Token::Error(Error::IndentationError))
+                                Some(Token::Error(Error::IndentationError, self.lexer.span()))
                             } else {
                                 Some(Token::BlockEnd)
                             }

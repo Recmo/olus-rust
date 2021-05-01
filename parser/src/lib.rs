@@ -9,6 +9,7 @@ use std::{fs::File, io, io::prelude::*, path::PathBuf};
 pub use unic::UNICODE_VERSION;
 mod lexer;
 pub mod mir;
+mod parse;
 
 pub fn parse_file(name: &PathBuf) -> io::Result<mir::Module> {
     // Read file contents
