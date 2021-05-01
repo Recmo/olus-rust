@@ -1,15 +1,13 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::pedantic, clippy::cargo, clippy::nursery)]
 
+mod lexer;
+mod parser;
 mod ast;
 mod desugar;
-mod parser;
-mod tokens;
-use std::{fs::File, io, io::prelude::*, path::PathBuf};
-pub use unic::UNICODE_VERSION;
-mod lexer;
 pub mod mir;
-mod parse;
+
+use std::{fs::File, io, io::prelude::*, path::PathBuf};
 
 pub fn parse_file(name: &PathBuf) -> io::Result<mir::Module> {
     // Read file contents
@@ -19,7 +17,7 @@ pub fn parse_file(name: &PathBuf) -> io::Result<mir::Module> {
     let contents = contents;
 
     // Parse
-    let mut ast = parser::parse_olus(&contents);
+    let mut ast = parser::parse(&contents);
     desugar::desugar(&mut ast);
     let module = mir::Module::from(&ast);
     Ok(module)
