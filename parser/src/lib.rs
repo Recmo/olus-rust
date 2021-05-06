@@ -1,11 +1,11 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::pedantic, clippy::cargo, clippy::nursery)]
 
-mod lexer;
-mod parser;
 mod ast;
 mod desugar;
+mod lexer;
 pub mod mir;
+mod parser;
 
 use std::{fs::File, io, io::prelude::*, path::PathBuf};
 

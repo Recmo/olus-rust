@@ -222,19 +222,20 @@ mod tests {
     fn parse_closure() {
         assert_eq!(
             parse("fact m n ↦ f a b \nc"),
-            Statement::Block(vec![Statement::Closure(
-                vec![
-                    Binder(None, "fact".to_string()),
-                    Binder(None, "m".to_string()),
-                    Binder(None, "n".to_string()),
-                ],
-                vec![
-                    Expression::Reference(None, "f".to_string()),
-                    Expression::Reference(None, "a".to_string()),
-                    Expression::Reference(None, "b".to_string()),
-                ]
-            ),
-            Statement::Call(vec![Expression::Reference(None, "c".to_string())])
+            Statement::Block(vec![
+                Statement::Closure(
+                    vec![
+                        Binder(None, "fact".to_string()),
+                        Binder(None, "m".to_string()),
+                        Binder(None, "n".to_string()),
+                    ],
+                    vec![
+                        Expression::Reference(None, "f".to_string()),
+                        Expression::Reference(None, "a".to_string()),
+                        Expression::Reference(None, "b".to_string()),
+                    ]
+                ),
+                Statement::Call(vec![Expression::Reference(None, "c".to_string())])
             ])
         );
     }

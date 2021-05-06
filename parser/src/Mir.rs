@@ -8,11 +8,11 @@ type BitVec = bitvec::vec::BitVec<bitvec::order::Lsb0, u64>;
 // TODO:
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct Module {
-    pub symbols:      Vec<String>,
+    pub symbols: Vec<String>,
 
     /// Bitvector of which symbols are names and not arguments
-    pub names:        BitVec,
-    
+    pub names: BitVec,
+
     pub imports:      Vec<String>,
     pub strings:      Vec<String>,
     pub numbers:      Vec<u64>,
@@ -96,8 +96,7 @@ impl Module {
     }
 
     pub fn declaration<'a>(&'a self, name: usize) -> Option<&'a Declaration> {
-        self
-            .declarations
+        self.declarations
             .iter()
             .find(|decl| decl.procedure[0] == name)
     }
