@@ -1,7 +1,10 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::pedantic, clippy::cargo, clippy::nursery)]
 
+mod interpreter;
+
 use codegen::codegen;
+use interpreter::Interpeter;
 use parser::parse_file;
 use std::{error::Error, path::PathBuf};
 use structopt::StructOpt;
@@ -39,11 +42,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap();
 
     // Compile
-    let olus = parse_file(&options.input)?;
-    dbg!(&olus);
+    let module = parse_file(&options.input)?;
+
+    // Interpret
+    let interpreter = Interpeter::new(&module);
+    interpreter.eval_by_name("main", &[]);
 
     // Codegen
-    codegen(&olus, &options.output.unwrap_or("a.out".into()))?;
+    // codegen(&olus, &options.output.unwrap_or("a.out".into()))?;
 
     Ok(())
 }

@@ -9,7 +9,10 @@ type BitVec = bitvec::vec::BitVec<bitvec::order::Lsb0, u64>;
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub struct Module {
     pub symbols:      Vec<String>,
+
+    /// Bitvector of which symbols are names and not arguments
     pub names:        BitVec,
+    
     pub imports:      Vec<String>,
     pub strings:      Vec<String>,
     pub numbers:      Vec<u64>,
@@ -92,14 +95,11 @@ impl Module {
         }
     }
 
-    pub fn decl<'a>(&'a self, name: usize) -> &'a Declaration {
-        assert!(self.names[name]);
-        let i = self
+    pub fn declaration<'a>(&'a self, name: usize) -> Option<&'a Declaration> {
+        self
             .declarations
             .iter()
-            .position(|decl| decl.procedure[0] == name)
-            .unwrap();
-        &self.declarations[i]
+            .find(|decl| decl.procedure[0] == name)
     }
 
     pub fn find_names(&mut self) {
@@ -121,7 +121,7 @@ impl Module {
         // procedure.
         for name in (0..self.symbols.len()).filter(|i| names[*i]) {
             closure.set(name, false);
-            closure |= self.closure_rec(self.decl(name), &context);
+            closure |= self.closure_rec(self.declaration(name).unwrap(), &context);
         }
 
         // Can not have any names in the closure.
